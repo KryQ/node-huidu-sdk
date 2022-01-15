@@ -158,33 +158,33 @@ class DisplayCommunicator extends EventEmitter {
 			return;
 		}
 
-		const tcp_response: TcpResponsePacket = { cmd: 0, data: null };
-		tcp_response.cmd = data[3] << 8 | data[2];
+		const tcpResponse: TcpResponsePacket = { cmd: 0, data: null };
+		tcpResponse.cmd = data[3] << 8 | data[2];
 
-		switch (tcp_response.cmd) {
+		switch (tcpResponse.cmd) {
 			case CmdType.kSDKServiceAnswer: {
 				//logger.debug("kSDKServiceAnswer")
-				tcp_response.data = Buffer.alloc(response_len - 4);
-				data.copy(tcp_response.data, 0, 4);
+				tcpResponse.data = Buffer.alloc(response_len - 4);
+				data.copy(tcpResponse.data, 0, 4);
 
 				const obj = this.queue.read("kSDKServiceAnswer");
 				if (obj) {
-					obj.resolve(tcp_response.data.readUInt32LE());
+					obj.resolve(tcpResponse.data.readUInt32LE());
 				}
 			}
 				break;
 			case CmdType.kSDKCmdAnswer: {
 				//logger.debug(`kSDKCmdAnswer`)
 
-				tcp_response.data = Buffer.alloc(response_len - 12);
-				data.copy(tcp_response.data, 0, 12);
+				tcpResponse.data = Buffer.alloc(response_len - 12);
+				data.copy(tcpResponse.data, 0, 12);
 
 				// logger.debug({
 				//     message: "Got SDKCmdAnwser",
 				//     data: tcp_response.data.toString("utf8")
 				// })
 
-				const guidObj = parser.parse(tcp_response.data);
+				const guidObj = parser.parse(tcpResponse.data);
 
 				const req = this.queue.read(guidObj?.sdk?.out["@_method"]);
 
@@ -201,9 +201,9 @@ class DisplayCommunicator extends EventEmitter {
 				break;
 			case CmdType.kErrorAnswer: {
 				console.log(data.toString("hex"));
-				tcp_response.data = Buffer.alloc(2);
-				data.copy(tcp_response.data, 0, 4, 6);
-				logger.error(`Got error anwser ${tcp_response.data.readUInt16LE()}`);
+				tcpResponse.data = Buffer.alloc(2);
+				data.copy(tcpResponse.data, 0, 4, 6);
+				logger.error(`Got error anwser ${tcpResponse.data.readUInt16LE()}`);
 			}
 				break;
 			case CmdType.kFileStartAnswer: {
@@ -253,7 +253,7 @@ class DisplayCommunicator extends EventEmitter {
 			}
 				break;
 			default: {
-				logger.error({ message: "Unknown error", cmd: tcp_response.cmd.toString(16) });
+				logger.error({ message: "Unknown error", cmd: tcpResponse.cmd.toString(16) });
 			}
 		}
 	};
