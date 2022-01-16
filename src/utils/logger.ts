@@ -12,8 +12,8 @@ const logger = winston.createLogger({
 	),
 	defaultMeta: { service: "huidu-sdk" },
 	transports: [
-		new winston.transports.File({ filename: "quick-start-error.log", level: "error" }),
-		new winston.transports.File({ filename: "quick-start-combined.log" })
+		new winston.transports.File({ filename: "./logs/quick-start-error.log", level: "error" }),
+		new winston.transports.File({ filename: "./logs/quick-start-combined.log" })
 	]
 });
 

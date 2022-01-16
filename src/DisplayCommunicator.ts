@@ -29,6 +29,15 @@ type UdpPacket = {
 	changeNumber: number
 }
 
+enum ConnectionState {
+	DISCONNECTED,
+	SETTING_UP,
+	CONNECTED,
+	LOST_COMMUNICATION,
+	BUSY,
+	ERROR
+}
+
 class DisplayCommunicator extends EventEmitter {
 	address: string;
 	port: number;
@@ -37,12 +46,13 @@ class DisplayCommunicator extends EventEmitter {
 	tcpVersion: number;
 	guid: string;
 	socket: net.Socket;
-	socketConnected = false;
+	connectionState: ConnectionState;
 	lastHeartbeat: Date;
 	heartbeatTimeoutHandle: any = null;
+	heartbeatCheckInterval = 2; //in minutes
 	queue: TcpQueue;
 
-	private maxPacketSize = 8000;
+	private maxPacketSize = 8000; //bytes (if your network doesn't handle jumbo frames change it to 1400)
 
 	private receivingBuffer: Buffer;
 	private receivingPacketLength: number;
@@ -59,57 +69,80 @@ class DisplayCommunicator extends EventEmitter {
 
 		this.socket = new net.Socket();
 		this.socket.on("data", this.responseListener);
-		this.socket.on("close", () => {
-			this.socketConnected = false;
-			console.timeEnd("socket");
+		this.socket.on("close", (error) => {
+			// if(error) {
+			// 	this.changeConnectionState(ConnectionState.ERROR);
+			// }
+			// else {
+			this.changeConnectionState(ConnectionState.DISCONNECTED);
+			this.deinit();
 		});
-		this.socket.on("error", () => {
-			this.socketConnected = false;
-			console.timeEnd("socket");
+		this.socket.on("error", error => {
+			logger.error(error);
 		});
 	}
 
-	connect = async () => new Promise((resolve, reject) => {
-		this.socket.connect(this.port, this.address, async () => {
-			this.socketConnected = true;
-			console.time("socket"); //Only for debug
+	changeConnectionState = (state:ConnectionState) => {
+		if(state!==this.connectionState) {
+			this.connectionState = state;
+			this.emit("connectionStateChange", state);
+		}
+	};
 
-			const askServiceVersion = (): Promise<number> =>
-				new Promise<number>((resolve, reject) => {
-					const serviceAsk: Buffer = Buffer.alloc(8);
+	connect = async ():Promise<boolean> => new Promise((resolve, reject) => {
+		this.changeConnectionState(ConnectionState.SETTING_UP);
 
-					serviceAsk[0] = (serviceAsk.length & 0xff);
-					serviceAsk[1] = ((serviceAsk.length >> 8) & 0xff);
-					serviceAsk[2] = (CmdType.kSDKServiceAsk & 0xff);
-					serviceAsk[3] = ((CmdType.kSDKServiceAsk >> 8) & 0xff);
-					serviceAsk[4] = (this.TCP_VERSION & 0xff);
-					serviceAsk[5] = ((this.TCP_VERSION >> 8) & 0xff);
-					serviceAsk[6] = ((this.TCP_VERSION >> 16) & 0xff);
-					serviceAsk[7] = ((this.TCP_VERSION >> 24) & 0xff);
+		if(this.connectionState===ConnectionState.CONNECTED) {
+			reject("already connected");
+			return;
+		}
+		
+		this.socket.connect(this.port, this.address, async ()=>this.init(resolve, reject));
+	});
 
-					this.queue.push("kSDKServiceAnswer", reject, resolve, 1000);
+	disconnect = () => {
+		this.socket.destroy();
+	};
 
-					this.socket.write(serviceAsk);
-				});
+	init = async (resolve, reject) => {
+		const askServiceVersion = (): Promise<number> =>
+			new Promise<number>((resolve, reject) => {
+				const serviceAsk: Buffer = Buffer.alloc(8);
 
-			const askGuid = (): Promise<any> => new Promise<any>((resolve, reject) => {
-				const guid_str = this.getGuid(this.tcpVersion);
-				const packet = this.constructSdkTckPacket(guid_str);
+				serviceAsk[0] = (serviceAsk.length & 0xff);
+				serviceAsk[1] = ((serviceAsk.length >> 8) & 0xff);
+				serviceAsk[2] = (CmdType.kSDKServiceAsk & 0xff);
+				serviceAsk[3] = ((CmdType.kSDKServiceAsk >> 8) & 0xff);
+				serviceAsk[4] = (this.TCP_VERSION & 0xff);
+				serviceAsk[5] = ((this.TCP_VERSION >> 8) & 0xff);
+				serviceAsk[6] = ((this.TCP_VERSION >> 16) & 0xff);
+				serviceAsk[7] = ((this.TCP_VERSION >> 24) & 0xff);
+
+				this.queue.push("kSDKServiceAnswer", reject, resolve, 1000);
+
+				this.socket.write(serviceAsk);
+			});
+
+		const askGuid = (tcpVersion:number): Promise<object> => 
+			new Promise<object>((resolve, reject) => {
+				const guidStr = this.getGuid(tcpVersion);
+				const packet = this.constructSdkTckPacket(guidStr);
 
 				this.socket.write(packet);
 
-				const timeout_handle = setTimeout(() => reject("timeout"), 10000);
 				this.queue.push("GetIFVersion", reject, resolve, 1000);
 			});
 
-			const service_request = await askServiceVersion();
+		try {
+			logger.debug("dc conn 1");
+			const serviceRequest = await askServiceVersion();
 			logger.log({
 				level: "info",
-				message: `TCP ver: ${service_request}`
+				message: `TCP ver: ${serviceRequest}`
 			});
-			this.tcpVersion = service_request;
+			this.tcpVersion = serviceRequest;
 
-			const guidObj = await askGuid();
+			const guidObj = await askGuid(this.tcpVersion);
 
 			this.guid = guidObj?.sdk["@_guid"];
 
@@ -118,9 +151,26 @@ class DisplayCommunicator extends EventEmitter {
 				message: `GUID: ${this.guid}`
 			});
 
+			this.heartbeatTimeoutHandle = setTimeout(() => {
+				this.changeConnectionState(ConnectionState.LOST_COMMUNICATION);
+			}, this.heartbeatCheckInterval * 60 * 1000);
+
+			this.changeConnectionState(ConnectionState.CONNECTED);
 			resolve(true);
-		});
-	});
+			return;
+		}
+		catch (e) {
+			this.changeConnectionState(ConnectionState.ERROR);
+				
+			reject(e);
+		}
+	};
+
+	deinit = () => {
+		this.tcpVersion = null;
+		this.guid = null;
+		if(this.heartbeatTimeoutHandle!==null) clearTimeout(this.heartbeatTimeoutHandle);
+	};
 
 	responseListener = (data: Buffer) => {
 		if (this.receivingPacketLength > this.receivedBytes) {
@@ -139,12 +189,12 @@ class DisplayCommunicator extends EventEmitter {
 			data = this.receivingBuffer;
 		}
 
-		const response_len: number = data[1] << 8 | data[0];
+		const responseLen: number = data[1] << 8 | data[0];
 
-		if (data.length !== response_len) {
-			if (response_len > data.length) {
-				this.receivingBuffer = Buffer.alloc(response_len);
-				this.receivingPacketLength = response_len;
+		if (data.length !== responseLen) {
+			if (responseLen > data.length) {
+				this.receivingBuffer = Buffer.alloc(responseLen);
+				this.receivingPacketLength = responseLen;
 				this.receivedBytes = data.length;
 
 				data.copy(this.receivingBuffer, 0);
@@ -162,109 +212,120 @@ class DisplayCommunicator extends EventEmitter {
 		tcpResponse.cmd = data[3] << 8 | data[2];
 
 		switch (tcpResponse.cmd) {
-			case CmdType.kSDKServiceAnswer: {
-				//logger.debug("kSDKServiceAnswer")
-				tcpResponse.data = Buffer.alloc(response_len - 4);
-				data.copy(tcpResponse.data, 0, 4);
+		case CmdType.kSDKServiceAnswer: {
+			//logger.debug("kSDKServiceAnswer")
+			tcpResponse.data = Buffer.alloc(responseLen - 4);
+			data.copy(tcpResponse.data, 0, 4);
 
-				const obj = this.queue.read("kSDKServiceAnswer");
-				if (obj) {
-					obj.resolve(tcpResponse.data.readUInt32LE());
-				}
+			const obj = this.queue.read("kSDKServiceAnswer");
+			if (obj) {
+				obj.resolve(tcpResponse.data.readUInt32LE());
 			}
-				break;
-			case CmdType.kSDKCmdAnswer: {
-				//logger.debug(`kSDKCmdAnswer`)
+		}
+			break;
+		case CmdType.kSDKCmdAnswer: {
+			//logger.debug(`kSDKCmdAnswer`)
 
-				tcpResponse.data = Buffer.alloc(response_len - 12);
-				data.copy(tcpResponse.data, 0, 12);
+			tcpResponse.data = Buffer.alloc(responseLen - 12);
+			data.copy(tcpResponse.data, 0, 12);
 
-				// logger.debug({
-				//     message: "Got SDKCmdAnwser",
-				//     data: tcp_response.data.toString("utf8")
-				// })
+			// logger.debug({
+			//     message: "Got SDKCmdAnwser",
+			//     data: tcp_response.data.toString("utf8")
+			// })
 
-				const guidObj = parser.parse(tcpResponse.data);
+			const guidObj = parser.parse(tcpResponse.data);
 
-				const req = this.queue.read(guidObj?.sdk?.out["@_method"]);
+			const req = this.queue.read(guidObj?.sdk?.out["@_method"]);
 
-				if (req) {
-					if (guidObj?.sdk?.out["@_result"] != "kSuccess") {
-						req.reject(guidObj);
-					}
-					else {
-						req.resolve(guidObj);
-					}
-				}
-
-			}
-				break;
-			case CmdType.kErrorAnswer: {
-				console.log(data.toString("hex"));
-				tcpResponse.data = Buffer.alloc(2);
-				data.copy(tcpResponse.data, 0, 4, 6);
-				logger.error(`Got error anwser ${tcpResponse.data.readUInt16LE()}`);
-			}
-				break;
-			case CmdType.kFileStartAnswer: {
-				const response_error_buffer = Buffer.alloc(2);
-				data.copy(response_error_buffer, 0, 4, 6);
-				logger.debug(`Got response anwser ${response_error_buffer.readUInt16LE()}`);
-
-				const response_size_buffer = Buffer.alloc(8);
-				data.copy(response_size_buffer, 0, 6, 14);
-				logger.debug(`Got response size anwser ${response_size_buffer.readUInt16LE()}`);
-
-				const req = this.queue.read("AddFiles");
-
-				if (req) {
-					if (response_size_buffer.readUInt16LE() || response_error_buffer.readUInt16LE()) {
-						req.reject(new Error("File already exists"));
-					}
-					else {
-						req.resolve("OK");
-					}
-				}
-			}
-				break;
-			case CmdType.kFileEndAnswer: {
-				const req = this.queue.read("kFileEndAsk");
-
-				if (req) {
-					req.resolve();
+			if (req) {
+				if (guidObj?.sdk?.out["@_result"] != "kSuccess") {
+					req.reject(guidObj);
 				}
 				else {
-					req.reject();
+					req.resolve(guidObj);
 				}
 			}
-				break;
+
+		}
+			break;
+		case CmdType.kErrorAnswer: {
+			console.log(data.toString("hex"));
+			tcpResponse.data = Buffer.alloc(2);
+			data.copy(tcpResponse.data, 0, 4, 6);
+			logger.error(`Got error anwser ${tcpResponse.data.readUInt16LE()}`);
+		}
+			break;
+		case CmdType.kFileStartAnswer: {
+			const responseErrorBuffer = Buffer.alloc(2);
+			data.copy(responseErrorBuffer, 0, 4, 6);
+			logger.debug(`Got response anwser ${responseErrorBuffer.readUInt16LE()}`);
+
+			const responseSizeBuffer = Buffer.alloc(8);
+			data.copy(responseSizeBuffer, 0, 6, 14);
+			logger.debug(`Got response size anwser ${responseSizeBuffer.readUInt16LE()}`);
+
+			const req = this.queue.read("AddFiles");
+
+			if (req) {
+				if (responseSizeBuffer.readUInt16LE() || responseErrorBuffer.readUInt16LE()) {
+					req.reject(new Error("File already exists"));
+				}
+				else {
+					req.resolve("OK");
+				}
+			}
+		}
+			break;
+		case CmdType.kFileEndAnswer: {
+			const req = this.queue.read("kFileEndAsk");
+
+			if (req) {
+				req.resolve();
+			}
+			else {
+				req.reject();
+			}
+		}
+			break;
 			//Anwser heartbeat challenge
-			case CmdType.kTcpHeartbeatAnswer: {
-				this.lastHeartbeat = new Date();
+		case CmdType.kTcpHeartbeatAnswer: {
+			this.lastHeartbeat = new Date();
+			if (this.heartbeatTimeoutHandle !== null) {
+				clearTimeout(this.heartbeatTimeoutHandle);
 
-				const heartbeatAsk: Buffer = Buffer.alloc(4);
-
-				heartbeatAsk[0] = (heartbeatAsk.length & 0xff);
-				heartbeatAsk[1] = ((heartbeatAsk.length >> 8) & 0xff);
-				heartbeatAsk[2] = (CmdType.kTcpHeartbeatAsk & 0xff);
-				heartbeatAsk[3] = ((CmdType.kTcpHeartbeatAsk >> 8) & 0xff);
-
-				this.socket.write(heartbeatAsk);
+				this.heartbeatTimeoutHandle = setTimeout(() => {
+					this.changeConnectionState(ConnectionState.LOST_COMMUNICATION);
+				}, this.heartbeatCheckInterval * 60 * 1000);
 			}
-				break;
-			default: {
-				logger.error({ message: "Unknown error", cmd: tcpResponse.cmd.toString(16) });
-			}
+
+			const heartbeatAsk: Buffer = Buffer.alloc(4);
+
+			heartbeatAsk[0] = (heartbeatAsk.length & 0xff);
+			heartbeatAsk[1] = ((heartbeatAsk.length >> 8) & 0xff);
+			heartbeatAsk[2] = (CmdType.kTcpHeartbeatAsk & 0xff);
+			heartbeatAsk[3] = ((CmdType.kTcpHeartbeatAsk >> 8) & 0xff);
+
+			this.socket.write(heartbeatAsk);
+		}
+			break;
+		default: {
+			logger.error({ message: "Unknown error", cmd: tcpResponse.cmd.toString(16) });
+		}
 		}
 	};
 
 	sdkCmdGet = (cmd: string, timeout = 1000): Promise<any> => new Promise<any>((resolve, reject) => {
+		if(this.connectionState!==ConnectionState.CONNECTED) {
+			reject("not connected");
+		}
+
 		const resolver = (data: any) => {
 			resolve(data);
 		};
 
-		const xml_str = this.getXml(this.guid, cmd);
-		const packet = this.constructSdkTckPacket(xml_str);
+		const xmlStr = this.getXml(this.guid, cmd);
+		const packet = this.constructSdkTckPacket(xmlStr);
 
 		try {
 			this.queue.push(cmd, reject, resolver, timeout);
@@ -283,10 +344,10 @@ class DisplayCommunicator extends EventEmitter {
 			return count;
 		};
 
-		const xml_str_len: number = payload.length + countUnicode(payload);
+		const xmlStrLen: number = payload.length + countUnicode(payload);
 		if (countUnicode(payload) > 0) console.log("found unicodes: ", countUnicode(payload));
 
-		const buff: Buffer = Buffer.alloc(12 + xml_str_len, 0, "utf8");
+		const buff: Buffer = Buffer.alloc(12 + xmlStrLen, 0, "utf8");
 
 		buff[0] = (buff.length & 0xff);
 		buff[1] = ((buff.length >> 8) & 0xff);
@@ -294,10 +355,10 @@ class DisplayCommunicator extends EventEmitter {
 		buff[2] = CmdType.kSDKCmdAsk & 0xff;
 		buff[3] = (CmdType.kSDKCmdAsk >> 8) & 0xff;
 
-		buff[4] = (xml_str_len & 0xff);
-		buff[5] = ((xml_str_len >> 8) & 0xff);
-		buff[6] = ((xml_str_len >> 16) & 0xff);
-		buff[7] = ((xml_str_len >> 24) & 0xff);
+		buff[4] = (xmlStrLen & 0xff);
+		buff[5] = ((xmlStrLen >> 8) & 0xff);
+		buff[6] = ((xmlStrLen >> 16) & 0xff);
+		buff[7] = ((xmlStrLen >> 24) & 0xff);
 
 		//TODO: SDK paging. max packet size is 9kb
 		const index = 0;
@@ -311,8 +372,8 @@ class DisplayCommunicator extends EventEmitter {
 	};
 
 	constructFileTransferPacket = (filename: string, filesize: number, filetype: number, md5: string): Buffer => {
-		const xml_str_len: number = 47 + (filename.length + 1);
-		const buff: Buffer = Buffer.alloc(xml_str_len, 0, "utf8");
+		const xmlStrLen: number = 47 + (filename.length + 1);
+		const buff: Buffer = Buffer.alloc(xmlStrLen, 0, "utf8");
 
 		//console.log(filename, buff.length, xml_str_len, md5)
 
@@ -370,13 +431,17 @@ class DisplayCommunicator extends EventEmitter {
 
 			file.copy(buff, 4, s, s + packetSize);
 
-			this.emit("progress", Math.round(((s + packetSize) / fileSize) * 100));
+			this.emit("uploadProgress", Math.round(((s + packetSize) / fileSize) * 100));
 
 			await this.socketWritePromise(buff);
 		}
 	};
 
 	endFileTransfer = () => new Promise((resolve, reject) => {
+		if(this.connectionState!==ConnectionState.CONNECTED) {
+			reject("not connected");
+		}
+
 		const buff = Buffer.alloc(4, 0);
 
 		buff[0] = (4 & 0xff);
@@ -486,4 +551,4 @@ class DisplayCommunicator extends EventEmitter {
 	}
 }
 
-export { DisplayCommunicator, CandidateDevice };
+export { DisplayCommunicator, CandidateDevice, ConnectionState };

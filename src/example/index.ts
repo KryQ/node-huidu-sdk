@@ -1,8 +1,13 @@
 /* eslint-disable no-case-declarations */
 /* eslint-disable indent */
+import blessed from "blessed";
 import logger from "../utils/logger.js";
-import { DisplayCommunicator, CandidateDevice } from "../DisplayCommunicator.js";
+import { DisplayCommunicator, CandidateDevice, ConnectionState } from "../DisplayCommunicator.js";
 import DisplayDevice from "../DisplayDevice.js";
+
+import { Program } from "../ProgramPlanner/Program.js";
+import TextComponent from "../ProgramPlanner/TextComponent.js";
+import ImageComponent from "../ProgramPlanner/ImageComponent.js";
 
 import readline from "readline";
 function askQuestion(query: string): Promise<number | string> {
@@ -18,7 +23,7 @@ function askQuestion(query: string): Promise<number | string> {
 }
 
 async function main() {
-	const devicesList = await DisplayCommunicator.searchForDevices("192.168.10.255", 10001, 2000);
+	const devicesList = await DisplayCommunicator.searchForDevices("192.168.1.255", 10001, 2000);
 
 	if (devicesList.length) {
 		if (devicesList.length > 1) {
@@ -29,10 +34,49 @@ async function main() {
 			});
 		}
 
+		//Selecting first card
 		const displayCard: CandidateDevice = devicesList[0];
 
 		const card: DisplayDevice = new DisplayDevice(displayCard.address, displayCard.port);
-		await card.init();
+
+		card.on("uploadProgress", p => {
+			process.stdout.clearLine();
+			process.stdout.cursorTo(0);
+			process.stdout.write(`Progress: ${p}\r`);
+		});
+
+		//This reconnection is going to blow in somebody face. Maybe somebody will wind better option
+		card.on("connectionStateChange", async (state) => {
+			logger.debug(`Connection state: ${state}`);
+
+			if(state===ConnectionState.DISCONNECTED) {
+				const handle = setInterval(async () => {
+					logger.debug("start init");
+					try {
+						if(await card.init()) {
+							clearInterval(handle);
+						}
+					}
+					catch (e) {
+						logger.error(e);
+					}
+					logger.debug("stop init");
+				},1000);
+			}
+
+			if(state===ConnectionState.LOST_COMMUNICATION) {
+				card.deinit();
+			}
+		});
+
+		try {
+			await card.init();
+		}
+		catch (e) {
+			logger.error(e);
+		}
+		
+		//await card.init();
 		logger.info(`Card name: ${card.name}`);
 
 		// eslint-disable-next-line no-constant-condition
@@ -41,6 +85,9 @@ async function main() {
 			console.log("1 - Get Brightness");
 			console.log("2 - Set Brightness");
 			console.log("3 - List file");
+			console.log("4 - Delete file");
+			console.log("5 - Upload file");
+			console.log("6 - Start video program");
 
 			const ans: number = parseInt(await askQuestion("Please select desired option:  "));
 			switch (ans) {
@@ -48,7 +95,12 @@ async function main() {
 					console.log(card.getState());
 					break;
 				case 1:
-					console.log(`Current brightness: ${await card.getBrightness()}`);
+					try {
+						console.log(`Current brightness: ${await card.getBrightness()}`);
+					}
+					catch (e) {
+						console.log("Error while fetching data");
+					}
 					break;
 				case 2:
 					const brightness: number = await askQuestion("How bright: ");
@@ -71,57 +123,35 @@ async function main() {
 						console.log(`Error: ${e}`);
 					}
 					break;
-				default: console.log("UNKNOWN OPTION Device state: " + card.getState());
+				case 5:
+					const uploadFile: string = await askQuestion("Input file path: ");
+					await card.uploadFile(uploadFile);
+					break;
+				case 6:
+					await card.addVideoProgram();
+					break;
+				case 7:
+					const program = new Program();
+
+					const parkingLogo = new ImageComponent(0,0,16,16,255, "image.jpg");
+
+					const parkingName = new TextComponent(17,0,47,8,255, "ul.Gdańska 1234     ");
+
+					const parkingSpaces = new TextComponent(17,8,47,8,255, "ul.Gdańska 1234     ");
+					
+					program.addComponent(parkingLogo);
+					program.addComponent(parkingName);
+					program.addComponent(parkingSpaces);
+					try {
+						await card.addProgram(program);
+					}
+					catch(e) {
+						logger.error(e.toString());
+					}
+				break;
+				default: console.log("UNKNOWN OPTION"); process.exit(0);
 			}
 		}
-
-		// setInterval(async () => {
-		//     try {
-		//         await this.setBrightness(Math.floor(Math.random() * (100 - 10)) + 10);
-		//     }
-		//     catch (e) {
-		//         logger.error(e.toString())
-		//     }
-		// }, 300);
-
-		// try {
-		// 	const obj: any = await this.listFiles();
-		// 	console.log(JSON.stringify(obj));
-		// }
-		// catch (e) {
-		// 	logger.error(e);
-		// }
-
-
-		// try {
-		// 	const obj: any = await this.deleteFiles("test_video.mp4");
-		// 	console.log(JSON.stringify(obj));
-		// }
-		// catch (e) {
-		// 	logger.error(e.toString());
-		// }
-
-		card.comm.on("progress", p => {
-			process.stdout.clearLine();
-			process.stdout.cursorTo(0);
-			process.stdout.write(`Progress: ${p}\r`);
-		});
-
-		// try {
-		// 	const obj: any = await this.uploadFile("./assets/9x18B.bdf");
-		// 	console.log(JSON.stringify(obj));
-		// }
-		// catch (e) {
-		// 	logger.error(e);
-		// }
-
-		// try {
-		// 	const obj: any = await this.addProgram();
-		// 	console.log(obj.out);
-		// }
-		// catch (e) {
-		// 	logger.error(e);
-		// }
 	}
 	else {
 		console.error("No device found!");

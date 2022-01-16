@@ -4,45 +4,51 @@
 
 import fs from "fs";
 import crypto from "crypto";
+import EventEmitter from "events";
 
 import { XMLBuilder } from "fast-xml-parser";
 import { v4 as uuidv4 } from "uuid";
 
-import { DisplayCommunicator } from "./DisplayCommunicator.js";
+import { ConnectionState, DisplayCommunicator } from "./DisplayCommunicator.js";
 
 import logger from "./utils/logger.js";
+import { Program } from "./ProgramPlanner/Program.js";
 
-class DisplayDevice {
+class DisplayDevice extends EventEmitter {
 	name: string;
 	private comm: DisplayCommunicator;
 
 	constructor(address: string, port: number) {
+		super();
+
 		this.comm = new DisplayCommunicator(address, port);
+		this.comm.on("uploadProgress", progress => this.emit("uploadProgress", progress));
+		this.comm.on("connectionStateChange", state => this.emit("connectionStateChange", state));
 	}
 
-	init = async () => {
-		await this.comm.connect();
-
-		this.name = await this.getName();
-	};
-
-	getState = (): number => {
-		if (!this.comm.socketConnected) {
-			//Socket disconnected
-			return 0;
-		}
-		else {
-			if ((+new Date()) - (+this.comm.lastHeartbeat) < 2 * 60 * 1000) {
-				//socket connected, device alive
-				return 1;
-			}
-			else {
-				//socket connected, device stale/disconnected?
-				return 2;
-			}
+	init = async (): Promise<boolean> => new Promise(async (resolve, reject) => {
+		if(this.comm.connectionState===ConnectionState.SETTING_UP || this.comm.connectionState===ConnectionState.CONNECTED) {
+			reject("Already connecting");
 		}
 
-		return 0;
+		logger.debug("dd init 1");
+		try {
+			await this.comm.connect();
+			logger.debug("dd init 2");
+			this.name = await this.getName();
+		}
+		catch (e) {
+			logger.error("dd error 1");
+			reject(e);
+		}
+		
+		logger.debug("dd init 3");
+		resolve(true);
+	});
+
+	deinit = async(): Promise<boolean> => {
+		this.comm.disconnect();
+		return true;
 	};
 
 	getName = async (): Promise<string> => {
@@ -178,117 +184,14 @@ class DisplayDevice {
 		this.comm.socket.write(packet);
 	});
 
-	addProgram = () => new Promise<boolean>(async (resolve, reject) => {
+	addProgram = (program:Program) => new Promise<boolean>(async (resolve, reject) => {
 		const addProgramXML = (guid: string): string => {
 			const kSDKServiceAsk = {
 				sdk: {
 					"@_guid": guid,
 					in: {
 						"@_method": "AddProgram",
-						"screen": {
-							"@_timeStamps": Math.round(Date.now() / 1000),
-							"program": {
-								"@_guid": uuidv4(),
-								"@_type": "normal",
-								"playControl": {
-									"@_count": 1,
-									"@_disabled": false,
-								},
-								"area": [
-									{
-										"@_alpha": 255,
-										"@_guid": uuidv4(),
-										"rectangle": {
-											"@_x": 0,
-											"@_height": 32,
-											"@_width": 32,
-											"@_y": 0
-										},
-										"resources": {
-											"image": {
-												"@_guid": uuidv4(),
-												"@_fit": "fill",
-												"file": {
-													"@_name": "image.jpg"
-												}
-											}
-										}
-									},
-									{
-										"@_alpha": 255,
-										"@_guid": uuidv4(),
-										"rectangle": {
-											"@_x": 34,
-											"@_height": 16,
-											"@_width": 158,
-											"@_y": 15
-										},
-										"resources": {
-											"text": {
-												"@_guid": uuidv4(),
-												"@_singleLine": false,
-												"style": {
-													"@_valign": "middle",
-													"@_align": "left",
-												},
-												"string": "ul. Gdańska",
-												"font": {
-													"@_name": "Ayar",
-													"@_italic": false,
-													"@_bold": false,
-													"@_underline": false,
-													"@_size": 14,
-													"@_color": "#ffff22",
-												},
-												"effect": {
-													"@_in": 0,
-													"@_out": 0,
-													"@_inSpeed": 5,
-													"@_outSpeed": 5,
-													"@_duration": 1000,
-												}
-											}
-										},
-									},
-									{
-										"@_alpha": 255,
-										"@_guid": uuidv4(),
-										"rectangle": {
-											"@_x": 34,
-											"@_height": 16,
-											"@_width": 158,
-											"@_y": 0
-										},
-										"resources": {
-											"text": {
-												"@_guid": uuidv4(),
-												"@_singleLine": true,
-												"style": {
-													"@_valign": "middle",
-													"@_align": "left",
-												},
-												"string": "ul. Wojska Polskiego 39",
-												"font": {
-													"@_name": "9x18B",
-													"@_italic": false,
-													"@_bold": false,
-													"@_underline": false,
-													"@_size": 18,
-													"@_color": "#ffffff",
-												},
-												"effect": {
-													"@_in": 21,
-													"@_out": 0,
-													"@_inSpeed": 5,
-													"@_outSpeed": 5,
-													"@_duration": 100,
-												}
-											}
-										}
-									}
-								]
-							}
-						}
+						"screen": program.generate()
 					},
 				}
 			};
@@ -306,7 +209,6 @@ class DisplayDevice {
 		};
 
 		const data = addProgramXML(this.comm.guid);
-		console.log(data);
 		const packet = this.comm.constructSdkTckPacket(data);
 
 		try {
@@ -341,8 +243,8 @@ class DisplayDevice {
 										"@_guid": uuidv4(),
 										"rectangle": {
 											"@_x": 0,
-											"@_height": 32,
-											"@_width": 192,
+											"@_height": 16,
+											"@_width": 64,
 											"@_y": 0
 										},
 										"resources": {
@@ -375,7 +277,6 @@ class DisplayDevice {
 		};
 
 		const data = addProgramXML(this.comm.guid);
-		console.log(data);
 		const packet = this.comm.constructSdkTckPacket(data);
 
 		try {
@@ -502,14 +403,14 @@ class DisplayDevice {
 	deleteFiles = (files: string | Array<string>): Promise<boolean> => new Promise((resolve, reject) => {
 		const createFilesList = (files: string | Array<string>) => {
 			if (typeof (files) === "string") {
-				return [{ "@_name": files }]
+				return [{ "@_name": files }];
 			}
 			else {
-				const array = new Array();
+				const array = [];
 				files.forEach((file: string) => {
 					array.push({ "@_name": file });
 				});
-				return array
+				return array;
 			}
 		};
 
