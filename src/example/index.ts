@@ -8,9 +8,11 @@ import DisplayDevice from "../DisplayDevice.js";
 import { Program } from "../ProgramPlanner/Program.js";
 import TextComponent from "../ProgramPlanner/TextComponent.js";
 import ImageComponent from "../ProgramPlanner/ImageComponent.js";
+import VideoComponent from "../ProgramPlanner/VideoComponent.js";
+import ParkingSpacesComponent from "../ProgramPlanner/ParkingSpacesComponent.js";
 
 import readline from "readline";
-import ParkingSpacesComponent from "../ProgramPlanner/ParkingSpacesComponent.js";
+
 function askQuestion(query: string): Promise<number | string> {
 	const rl = readline.createInterface({
 		input: process.stdin,
@@ -130,7 +132,18 @@ async function main() {
 					await card.uploadFile(uploadFile);
 					break;
 				case 6:
-					await card.addVideoProgram();
+					const program = new Program();
+
+					const videoComponent = new VideoComponent(0, 0, 64, 16, 255, "test_video.mp4");
+					
+					program.addComponent(videoComponent);
+
+					try {
+						await card.addProgram(program);
+					}
+					catch(e) {
+						logger.error(e.toString());
+					}
 					break;
 				case 7:
 					const program = new Program();

@@ -3,7 +3,7 @@ import net from "net";
 
 import EventEmitter from "events";
 
-import { CmdType } from "./SdkConstants.js";
+import { CmdType, ErrorCode } from "./SdkConstants.js";
 import { TcpQueue } from "./helpers/TcpQueue.js";
 
 import logger from "./utils/logger.js";
@@ -213,7 +213,6 @@ class DisplayCommunicator extends EventEmitter {
 
 		switch (tcpResponse.cmd) {
 		case CmdType.kSDKServiceAnswer: {
-			//logger.debug("kSDKServiceAnswer")
 			tcpResponse.data = Buffer.alloc(responseLen - 4);
 			data.copy(tcpResponse.data, 0, 4);
 
@@ -224,15 +223,8 @@ class DisplayCommunicator extends EventEmitter {
 		}
 			break;
 		case CmdType.kSDKCmdAnswer: {
-			//logger.debug(`kSDKCmdAnswer`)
-
 			tcpResponse.data = Buffer.alloc(responseLen - 12);
 			data.copy(tcpResponse.data, 0, 12);
-
-			// logger.debug({
-			//     message: "Got SDKCmdAnwser",
-			//     data: tcp_response.data.toString("utf8")
-			// })
 
 			const guidObj = parser.parse(tcpResponse.data);
 
@@ -240,6 +232,11 @@ class DisplayCommunicator extends EventEmitter {
 
 			if (req) {
 				if (guidObj?.sdk?.out["@_result"] != "kSuccess") {
+					if(guidObj?.sdk?.out["@_result"] == "kDownloadingFile") {
+						req.reject("required file not found");
+						return;
+					}
+
 					req.reject(guidObj);
 				}
 				else {
@@ -250,10 +247,9 @@ class DisplayCommunicator extends EventEmitter {
 		}
 			break;
 		case CmdType.kErrorAnswer: {
-			console.log(data.toString("hex"));
 			tcpResponse.data = Buffer.alloc(2);
 			data.copy(tcpResponse.data, 0, 4, 6);
-			logger.error(`Got error anwser ${tcpResponse.data.readUInt16LE()}`);
+			logger.error(`Got error anwser ${ErrorCode[tcpResponse.data.readUInt16LE()]} ${tcpResponse.data.readUInt16LE()}`);
 		}
 			break;
 		case CmdType.kFileStartAnswer: {
@@ -288,7 +284,6 @@ class DisplayCommunicator extends EventEmitter {
 			}
 		}
 			break;
-			//Anwser heartbeat challenge
 		case CmdType.kTcpHeartbeatAnswer: {
 			this.lastHeartbeat = new Date();
 			if (this.heartbeatTimeoutHandle !== null) {
