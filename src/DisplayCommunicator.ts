@@ -153,7 +153,7 @@ class DisplayCommunicator extends EventEmitter {
 
 			this.heartbeatTimeoutHandle = setTimeout(() => {
 				this.changeConnectionState(ConnectionState.LOST_COMMUNICATION);
-			}, this.heartbeatCheckInterval * 60 * 1000);
+			}, (this.heartbeatCheckInterval+2) * 60 * 1000);
 
 			this.changeConnectionState(ConnectionState.CONNECTED);
 			resolve(true);

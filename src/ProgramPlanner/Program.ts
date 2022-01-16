@@ -5,19 +5,18 @@ import {ComponentInterface} from "./BaseComponent.js";
 class Program {
 	private components: Array<ComponentInterface> = [];
 	generate = () => {
-		const createList = () => this.components.map(component => component.generate());
+		const createList = () => this.components.map(component => component.generate()).flat();
 		return {
 			"@_timeStamps": Math.round(Date.now() / 1000),
 			"program": {
 				"@_guid": uuidv4(),
 				"@_type": "normal",
-				"playControl": {
-					"@_count": 1,
-					"@_disabled": false,
-				},
+				// "playControl": {
+				// 	"@_count": 1,
+				// 	"@_disabled": false,
+				// },
 				"area": createList()
 			}
-			
 		};
 	};
 

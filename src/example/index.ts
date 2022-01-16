@@ -10,6 +10,7 @@ import TextComponent from "../ProgramPlanner/TextComponent.js";
 import ImageComponent from "../ProgramPlanner/ImageComponent.js";
 
 import readline from "readline";
+import ParkingSpacesComponent from "../ProgramPlanner/ParkingSpacesComponent.js";
 function askQuestion(query: string): Promise<number | string> {
 	const rl = readline.createInterface({
 		input: process.stdin,
@@ -88,6 +89,7 @@ async function main() {
 			console.log("4 - Delete file");
 			console.log("5 - Upload file");
 			console.log("6 - Start video program");
+			console.log("7 - Start parking program");
 
 			const ans: number = parseInt(await askQuestion("Please select desired option:  "));
 			switch (ans) {
@@ -133,15 +135,14 @@ async function main() {
 				case 7:
 					const program = new Program();
 
-					const parkingLogo = new ImageComponent(0,0,16,16,255, "image.jpg");
-
-					const parkingName = new TextComponent(17,0,47,8,255, "ul.Gdańska 1234     ");
-
-					const parkingSpaces = new TextComponent(17,8,47,8,255, "ul.Gdańska 1234     ");
+					const parkingLogoComponent = new ImageComponent(0, 0, 16, 16, 255, "image.jpg");
+					const parkingNameComponent = new TextComponent(17, 0, 47, 8, 255, "ul. Wojska Polskiego");
+					const parkingSpacesComponent = new ParkingSpacesComponent(17, 8, 47, 8, 255, "miejsc", 10, 20);
 					
-					program.addComponent(parkingLogo);
-					program.addComponent(parkingName);
-					program.addComponent(parkingSpaces);
+					program.addComponent(parkingLogoComponent);
+					program.addComponent(parkingNameComponent);
+					program.addComponent(parkingSpacesComponent);
+
 					try {
 						await card.addProgram(program);
 					}
