@@ -1,6 +1,5 @@
 /* eslint-disable no-case-declarations */
 /* eslint-disable indent */
-import blessed from "blessed";
 import logger from "../utils/logger.js";
 import { DisplayCommunicator, CandidateDevice, ConnectionState } from "../DisplayCommunicator.js";
 import DisplayDevice from "../DisplayDevice.js";
@@ -92,6 +91,7 @@ async function main() {
 			console.log("5 - Upload file");
 			console.log("6 - Start video program");
 			console.log("7 - Start parking program");
+			console.log("8 - Set ETH to DHCP");
 
 			const ans: number = parseInt(await askQuestion("Please select desired option:  "));
 			switch (ans) {
@@ -134,7 +134,7 @@ async function main() {
 				case 6:
 					const program = new Program();
 
-					const videoComponent = new VideoComponent(0, 0, 64, 16, 255, "test_video.mp4");
+					const videoComponent = new VideoComponent(0, 0, 192, 31, 255, "test_video.mp4");
 					
 					program.addComponent(videoComponent);
 
@@ -148,9 +148,9 @@ async function main() {
 				case 7:
 					const program = new Program();
 
-					const parkingLogoComponent = new ImageComponent(0, 0, 16, 16, 255, "image.jpg");
-					const parkingNameComponent = new TextComponent(17, 0, 47, 8, 255, "ul. Wojska Polskiego");
-					const parkingSpacesComponent = new ParkingSpacesComponent(17, 8, 47, 8, 255, "miejsc", 10, 20);
+					const parkingLogoComponent = new ImageComponent(0, 0, 32, 32, 255, "image.jpg");
+					const parkingNameComponent = new TextComponent(33, 0, 159, 16, 255, "ul. Wojska Polskiego");
+					const parkingSpacesComponent = new ParkingSpacesComponent(33, 16, 159, 16, 255, "miejsc", 10, 20);
 					
 					program.addComponent(parkingLogoComponent);
 					program.addComponent(parkingNameComponent);
@@ -163,6 +163,15 @@ async function main() {
 						logger.error(e.toString());
 					}
 				break;
+				case 8:
+					try {
+					await card.setEth();
+					}
+					catch (e) {
+						console.log(e);
+						logger.error(e.toString());
+					}
+					break;
 				default: console.log("UNKNOWN OPTION"); process.exit(0);
 			}
 		}

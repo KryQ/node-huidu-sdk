@@ -27,8 +27,8 @@ class ParkingSpacesComponent implements ComponentInterface {
 		this.freeSpaces = freeSpaces;
 		this.maxSpaces = maxSpaces;
 
-		this.messageComponent = new TextComponent(x, y, this.width-15, this.height, 255, text);
-		this.spacesComponent = new TextComponent(this.x+(this.width-14), y, 14, this.height, 255, freeSpaces.toString());
+		this.messageComponent = new TextComponent(x, y, this.width-21, this.height, 255, text);
+		this.spacesComponent = new TextComponent(this.x+(this.width-20), y, 20, this.height, 255, freeSpaces.toString());
 		this.spacesComponent.setJustify("right");
 		this.spacesComponent.setColor("#FFFF11");
 	}

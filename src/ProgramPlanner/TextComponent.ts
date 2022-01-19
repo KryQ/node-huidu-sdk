@@ -22,7 +22,7 @@ class TextComponent implements ComponentInterface {
 		this.alpha = alpha;
 
 		this.text = text;
-		if(text.length>10) {
+		if(text.length>18) {
 			this.setSlidingText(true);
 		}
 	}
@@ -74,7 +74,7 @@ class TextComponent implements ComponentInterface {
 						"@_italic": false,
 						"@_bold": false,
 						"@_underline": false,
-						"@_size": 8,
+						"@_size": 16,
 						"@_color": this.color,
 					},
 					"effect": {

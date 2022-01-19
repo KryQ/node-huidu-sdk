@@ -16,10 +16,13 @@ import { Program } from "./ProgramPlanner/Program.js";
 
 class DisplayDevice extends EventEmitter {
 	name: string;
+	model: string;
 	private comm: DisplayCommunicator;
 
-	constructor(address: string, port: number) {
+	constructor(address: string, port: number, model: string = null) {
 		super();
+
+		this.model = model;
 
 		this.comm = new DisplayCommunicator(address, port);
 		this.comm.on("uploadProgress", progress => this.emit("uploadProgress", progress));
@@ -132,6 +135,52 @@ class DisplayDevice extends EventEmitter {
 		catch (e) {
 			reject(e);
 		}
+	});
+
+	setEth = () => new Promise<string>(async (resolve, reject) => {
+		const setEth0InfoXML = (guid: string): string => {
+			const kSDKServiceAsk = {
+				sdk: {
+					"@_guid": guid,
+					in: {
+						"@_method": "SetEth0Info",
+						eth: {
+							"@_valid": true,
+							enable: {
+								"@_value": true,
+							},
+							dhcp: {
+								"@_auto": true,
+							},
+							address: {}
+						}
+					}
+				},
+
+			};
+
+			const builder = new XMLBuilder({
+				ignoreAttributes: false,
+				suppressEmptyNode: true
+			});
+			return "<?xml version=\"1.0\" encoding=\"utf-8\"?>" + builder.build(kSDKServiceAsk);
+		};
+
+		const resolver = (data: any) => {
+			resolve(data);
+		};
+
+		const data = setEth0InfoXML(this.comm.guid);
+		console.log(data);
+		const packet = this.comm.constructSdkTckPacket(data);
+
+		try {
+			this.comm.queue.push("SetEth0Info", reject, resolver, 10000);
+		}
+		catch (e) {
+			reject(e);
+		}
+		this.comm.socket.write(packet);
 	});
 
 	getProgram = () => new Promise<string>(async (resolve, reject) => {

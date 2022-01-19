@@ -70,10 +70,6 @@ class DisplayCommunicator extends EventEmitter {
 		this.socket = new net.Socket();
 		this.socket.on("data", this.responseListener);
 		this.socket.on("close", (error) => {
-			// if(error) {
-			// 	this.changeConnectionState(ConnectionState.ERROR);
-			// }
-			// else {
 			this.changeConnectionState(ConnectionState.DISCONNECTED);
 			this.deinit();
 		});
@@ -97,52 +93,24 @@ class DisplayCommunicator extends EventEmitter {
 			return;
 		}
 		
-		this.socket.connect(this.port, this.address, async ()=>this.init(resolve, reject));
+		this.socket.connect(this.port, this.address, async () => this.init(resolve, reject));
 	});
 
 	disconnect = () => {
 		this.socket.destroy();
 	};
 
-	init = async (resolve, reject) => {
-		const askServiceVersion = (): Promise<number> =>
-			new Promise<number>((resolve, reject) => {
-				const serviceAsk: Buffer = Buffer.alloc(8);
-
-				serviceAsk[0] = (serviceAsk.length & 0xff);
-				serviceAsk[1] = ((serviceAsk.length >> 8) & 0xff);
-				serviceAsk[2] = (CmdType.kSDKServiceAsk & 0xff);
-				serviceAsk[3] = ((CmdType.kSDKServiceAsk >> 8) & 0xff);
-				serviceAsk[4] = (this.TCP_VERSION & 0xff);
-				serviceAsk[5] = ((this.TCP_VERSION >> 8) & 0xff);
-				serviceAsk[6] = ((this.TCP_VERSION >> 16) & 0xff);
-				serviceAsk[7] = ((this.TCP_VERSION >> 24) & 0xff);
-
-				this.queue.push("kSDKServiceAnswer", reject, resolve, 1000);
-
-				this.socket.write(serviceAsk);
-			});
-
-		const askGuid = (tcpVersion:number): Promise<object> => 
-			new Promise<object>((resolve, reject) => {
-				const guidStr = this.getGuid(tcpVersion);
-				const packet = this.constructSdkTckPacket(guidStr);
-
-				this.socket.write(packet);
-
-				this.queue.push("GetIFVersion", reject, resolve, 1000);
-			});
-
+	init = async (resolve:(ret:boolean) => void, reject:(ret:string) => void) => {
 		try {
 			logger.debug("dc conn 1");
-			const serviceRequest = await askServiceVersion();
+			const serviceRequest = await this.askServiceVersion();
 			logger.log({
 				level: "info",
 				message: `TCP ver: ${serviceRequest}`
 			});
 			this.tcpVersion = serviceRequest;
 
-			const guidObj = await askGuid(this.tcpVersion);
+			const guidObj = await this.askGuid(this.tcpVersion);
 
 			this.guid = guidObj?.sdk["@_guid"];
 
@@ -169,7 +137,9 @@ class DisplayCommunicator extends EventEmitter {
 	deinit = () => {
 		this.tcpVersion = null;
 		this.guid = null;
-		if(this.heartbeatTimeoutHandle!==null) clearTimeout(this.heartbeatTimeoutHandle);
+		if(this.heartbeatTimeoutHandle!==null) {
+			clearTimeout(this.heartbeatTimeoutHandle);
+		}
 	};
 
 	responseListener = (data: Buffer) => {
@@ -310,26 +280,6 @@ class DisplayCommunicator extends EventEmitter {
 		}
 	};
 
-	sdkCmdGet = (cmd: string, timeout = 1000): Promise<any> => new Promise<any>((resolve, reject) => {
-		if(this.connectionState!==ConnectionState.CONNECTED) {
-			reject("not connected");
-		}
-
-		const resolver = (data: any) => {
-			resolve(data);
-		};
-
-		const xmlStr = this.getXml(this.guid, cmd);
-		const packet = this.constructSdkTckPacket(xmlStr);
-
-		try {
-			this.queue.push(cmd, reject, resolver, timeout);
-			this.socket.write(packet);
-		} catch (e) {
-			reject("already pending");
-		}
-	});
-
 	constructSdkTckPacket = (payload: string): Buffer => {
 		const countUnicode = (str: string) => {
 			let count = 0;
@@ -340,7 +290,7 @@ class DisplayCommunicator extends EventEmitter {
 		};
 
 		const xmlStrLen: number = payload.length + countUnicode(payload);
-		if (countUnicode(payload) > 0) console.log("found unicodes: ", countUnicode(payload));
+		//if (countUnicode(payload) > 0) console.log("found unicodes: ", countUnicode(payload));
 
 		const buff: Buffer = Buffer.alloc(12 + xmlStrLen, 0, "utf8");
 
@@ -366,43 +316,22 @@ class DisplayCommunicator extends EventEmitter {
 		return buff;
 	};
 
-	constructFileTransferPacket = (filename: string, filesize: number, filetype: number, md5: string): Buffer => {
-		const xmlStrLen: number = 47 + (filename.length + 1);
-		const buff: Buffer = Buffer.alloc(xmlStrLen, 0, "utf8");
-
-		//console.log(filename, buff.length, xml_str_len, md5)
-
-		buff[0] = (buff.length & 0xff);
-		buff[1] = ((buff.length >> 8) & 0xff);
-
-		buff[2] = CmdType.kFileStartAsk & 0xff;
-		buff[3] = (CmdType.kFileStartAsk >> 8) & 0xff;
-
-		for (let i = 0; i < md5.length; i++) {
-			buff[4 + i] = md5.charCodeAt(i);
+	sdkCmdGet = (cmd: string, timeout = 1000): Promise<any> => new Promise<any>((resolve, reject) => {
+		if(this.connectionState!==ConnectionState.CONNECTED) {
+			reject("not connected");
+			return;
 		}
-		//buff[4 + md5.length] = 0;
 
-		buff[37] = (filesize & 0xff);
-		buff[38] = ((filesize >> 8) & 0xff);
-		buff[39] = ((filesize >> 16) & 0xff);
-		buff[40] = ((filesize >> 24) & 0xff);
-		// buff[41] = ((filesize >> 32) & 0xff);
-		// buff[42] = ((filesize >> 40) & 0xff);
-		// buff[43] = ((filesize >> 48) & 0xff);
-		// buff[44] = ((filesize >> 56) & 0xff);
+		const xmlStr = this.getXml(this.guid, cmd);
+		const packet = this.constructSdkTckPacket(xmlStr);
 
-		buff[45] = (filetype & 0xff);
-		buff[46] = ((filetype >> 8) & 0xff);
-
-		for (let i = 0; i < filename.length; i++) {
-			buff[47 + i] = filename.charCodeAt(i);
+		try {
+			this.queue.push(cmd, reject, resolve, timeout);
+			this.socket.write(packet);
+		} catch (e) {
+			reject("already pending");
 		}
-		buff[47 + filename.length] = 0;
-
-		//Buffer.from(payload).copy(buff, 12);
-		return buff;
-	};
+	});
 
 	socketWritePromise = (buff: Buffer): Promise<boolean> =>
 		new Promise((resolve, reject) => {
@@ -411,6 +340,42 @@ class DisplayCommunicator extends EventEmitter {
 				else resolve(true);
 			}));
 		});
+
+	constructFileTransferPacket = (filename: string, filesize: number, filetype: number, md5: string): Buffer => {
+		const xmlStrLen: number = 47 + (filename.length + 1);
+		const buff: Buffer = Buffer.alloc(xmlStrLen, 0, "utf8");
+	
+		buff[0] = (buff.length & 0xff);
+		buff[1] = ((buff.length >> 8) & 0xff);
+	
+		buff[2] = CmdType.kFileStartAsk & 0xff;
+		buff[3] = (CmdType.kFileStartAsk >> 8) & 0xff;
+	
+		for (let i = 0; i < md5.length; i++) {
+			buff[4 + i] = md5.charCodeAt(i);
+		}
+		//buff[4 + md5.length] = 0;
+	
+		buff[37] = (filesize & 0xff);
+		buff[38] = ((filesize >> 8) & 0xff);
+		buff[39] = ((filesize >> 16) & 0xff);
+		buff[40] = ((filesize >> 24) & 0xff);
+		// buff[41] = ((filesize >> 32) & 0xff);
+		// buff[42] = ((filesize >> 40) & 0xff);
+		// buff[43] = ((filesize >> 48) & 0xff);
+		// buff[44] = ((filesize >> 56) & 0xff);
+	
+		buff[45] = (filetype & 0xff);
+		buff[46] = ((filetype >> 8) & 0xff);
+	
+		for (let i = 0; i < filename.length; i++) {
+			buff[47 + i] = filename.charCodeAt(i);
+		}
+		buff[47 + filename.length] = 0;
+	
+		//Buffer.from(payload).copy(buff, 12);
+		return buff;
+	};
 
 	transferFile = async (file: Buffer) => {
 		const fileSize = file.length;
@@ -448,6 +413,34 @@ class DisplayCommunicator extends EventEmitter {
 		this.queue.push("kFileEndAsk", reject, resolve, 10000);
 		this.socket.write(buff);
 	});
+
+	private askServiceVersion = (): Promise<number> =>
+		new Promise<number>((resolve, reject) => {
+			const serviceAsk: Buffer = Buffer.alloc(8);
+
+			serviceAsk[0] = (serviceAsk.length & 0xff);
+			serviceAsk[1] = ((serviceAsk.length >> 8) & 0xff);
+			serviceAsk[2] = (CmdType.kSDKServiceAsk & 0xff);
+			serviceAsk[3] = ((CmdType.kSDKServiceAsk >> 8) & 0xff);
+			serviceAsk[4] = (this.TCP_VERSION & 0xff);
+			serviceAsk[5] = ((this.TCP_VERSION >> 8) & 0xff);
+			serviceAsk[6] = ((this.TCP_VERSION >> 16) & 0xff);
+			serviceAsk[7] = ((this.TCP_VERSION >> 24) & 0xff);
+
+			this.queue.push("kSDKServiceAnswer", reject, resolve, 1000);
+
+			this.socket.write(serviceAsk);
+		});
+
+	private askGuid = (tcpVersion:number): Promise<object> => 
+		new Promise<object>((resolve, reject) => {
+			const guidStr = this.getGuid(tcpVersion);
+			const packet = this.constructSdkTckPacket(guidStr);
+
+			this.socket.write(packet);
+
+			this.queue.push("GetIFVersion", reject, resolve, 1000);
+		});
 
 	private getXml = (guid: string, cmd: string): string => {
 		const xmlAsk = {
