@@ -25,7 +25,7 @@ function askQuestion(query: string): Promise<number | string> {
 }
 
 async function main() {
-	const devicesList = await DisplayCommunicator.searchForDevices("192.168.1.255", 10001, 2000);
+	const devicesList = await DisplayCommunicator.searchForDevices("192.168.10.255", 10001, 2000);
 
 	if (devicesList.length) {
 		if (devicesList.length > 1) {

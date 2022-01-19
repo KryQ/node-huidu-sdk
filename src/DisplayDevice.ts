@@ -7,7 +7,6 @@ import crypto from "crypto";
 import EventEmitter from "events";
 
 import { XMLBuilder } from "fast-xml-parser";
-import { v4 as uuidv4 } from "uuid";
 
 import { ConnectionState, DisplayCommunicator } from "./DisplayCommunicator.js";
 
@@ -65,48 +64,33 @@ class DisplayDevice extends EventEmitter {
 	};
 
 	setBrightness = (brigth: number) => new Promise<number>((resolve, reject) => {
-		const setBrightnessXML = (guid: string, pBrightness: number): string => {
-			const kSDKServiceAsk = {
-				sdk: {
-					"@_guid": guid,
-					in: {
-						"@_method": "SetLuminancePloy",
-						"mode": {
-							"@_value": "default"
-						},
-						"default": {
-							"@_value": pBrightness
-						},
-						"ploy": {
-							"item": {
-								"@_enable": "false",
-								"@_start": "08:00:00",
-								"@_percent": 100
-							}
-						},
-						"sensor": {
-							"@_max": 100,
-							"@_time": 5,
-							"@_min": 1
-						}
-					}
-				},
-
-			};
-
-			const builder = new XMLBuilder({
-				ignoreAttributes: false,
-				suppressEmptyNode: true
-			});
-			return "<?xml version=\"1.0\" encoding=\"utf-8\"?>" + builder.build(kSDKServiceAsk);
+		const payload = {
+			"@_method": "SetLuminancePloy",
+			"mode": {
+				"@_value": "default"
+			},
+			"default": {
+				"@_value": brigth
+			},
+			"ploy": {
+				"item": {
+					"@_enable": "false",
+					"@_start": "08:00:00",
+					"@_percent": 100
+				}
+			},
+			"sensor": {
+				"@_max": 100,
+				"@_time": 5,
+				"@_min": 1
+			}
 		};
 
 		const resolver = (data: any) => {
 			resolve(brigth);
 		};
 
-		const data = setBrightnessXML(this.comm.guid, brigth);
-		const packet = this.comm.constructSdkTckPacket(data);
+		const packet = this.comm.constructSdkTckPacket(payload);
 
 		try {
 			this.comm.queue.push("SetLuminancePloy", reject, resolver, 1000);

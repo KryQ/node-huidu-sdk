@@ -110,7 +110,7 @@ class DisplayCommunicator extends EventEmitter {
 			});
 			this.tcpVersion = serviceRequest;
 
-			const guidObj = await this.askGuid(this.tcpVersion);
+			const guidObj = await this.askGuid();
 
 			this.guid = guidObj?.sdk["@_guid"];
 
@@ -280,7 +280,7 @@ class DisplayCommunicator extends EventEmitter {
 		}
 	};
 
-	constructSdkTckPacket = (payload: string): Buffer => {
+	constructSdkTckPacket = (data: object, guid?: string): Buffer => {
 		const countUnicode = (str: string) => {
 			let count = 0;
 			for (let i = 0; i < str.length; i++) {
@@ -288,6 +288,21 @@ class DisplayCommunicator extends EventEmitter {
 			}
 			return count;
 		};
+
+		const usedGuid = guid ? guid : this.guid;
+
+		const kSDKServiceAsk = {
+			sdk: {
+				"@_guid": usedGuid,
+				in: data
+			},
+		};
+
+		const builder = new XMLBuilder({
+			ignoreAttributes: false,
+			suppressEmptyNode: true
+		});
+		const payload = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" + builder.build(kSDKServiceAsk);
 
 		const xmlStrLen: number = payload.length + countUnicode(payload);
 		//if (countUnicode(payload) > 0) console.log("found unicodes: ", countUnicode(payload));
@@ -322,8 +337,9 @@ class DisplayCommunicator extends EventEmitter {
 			return;
 		}
 
-		const xmlStr = this.getXml(this.guid, cmd);
-		const packet = this.constructSdkTckPacket(xmlStr);
+		const packet = this.constructSdkTckPacket({
+			"@_method": cmd
+		});
 
 		try {
 			this.queue.push(cmd, reject, resolve, timeout);
@@ -432,54 +448,19 @@ class DisplayCommunicator extends EventEmitter {
 			this.socket.write(serviceAsk);
 		});
 
-	private askGuid = (tcpVersion:number): Promise<object> => 
+	private askGuid = (): Promise<object> => 
 		new Promise<object>((resolve, reject) => {
-			const guidStr = this.getGuid(tcpVersion);
-			const packet = this.constructSdkTckPacket(guidStr);
+			const packet = this.constructSdkTckPacket({
+				"@_method": "GetIFVersion",
+				"version": {
+					"@_value": this.tcpVersion.toString(16)
+				}
+			}, "##GUID");
 
 			this.socket.write(packet);
 
 			this.queue.push("GetIFVersion", reject, resolve, 1000);
 		});
-
-	private getXml = (guid: string, cmd: string): string => {
-		const xmlAsk = {
-			sdk: {
-				"@_guid": guid,
-				in: {
-					"@_method": cmd
-				}
-			},
-
-		};
-
-		const builder = new XMLBuilder({
-			ignoreAttributes: false,
-			suppressEmptyNode: true
-		});
-		return "<?xml version=\"1.0\" encoding=\"utf-8\"?>" + builder.build(xmlAsk);
-	};
-
-	private getGuid = (tcpVersion: number): string => {
-		const kSDKServiceAsk = {
-			sdk: {
-				"@_guid": "##GUID",
-				in: {
-					"@_method": "GetIFVersion",
-					"version": {
-						"@_value": tcpVersion.toString(16)
-					}
-				}
-			},
-
-		};
-
-		const builder = new XMLBuilder({
-			ignoreAttributes: false,
-			suppressEmptyNode: true
-		});
-		return "<?xml version=\"1.0\" encoding=\"utf-8\"?>" + builder.build(kSDKServiceAsk);
-	};
 
 	static decodeUdpResponse(data: Buffer): UdpPacket {
 		const version: number = data[3] << 24 | data[2] << 16 | data[1] << 8 | data[0];
