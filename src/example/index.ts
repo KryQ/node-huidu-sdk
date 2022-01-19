@@ -39,6 +39,7 @@ async function main() {
 		//Selecting first card
 		const displayCard: CandidateDevice = devicesList[0];
 
+		
 		const card: DisplayDevice = new DisplayDevice(displayCard.address, displayCard.port);
 
 		card.on("uploadProgress", p => {

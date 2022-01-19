@@ -1,14 +1,16 @@
 {
   "name": "huidu_sdk",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "0.0.1",
+  "description": "Node implementation for huidu cards",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepublish": "tsc"
   },
   "type": "module",
   "author": "kryq",
-  "license": "CC BY-NC-ND 3.0",
+  "license": "BSD 3-Clause License",
   "dependencies": {
     "@types/node": "^16.11.10",
     "@types/uuid": "^8.3.3",
