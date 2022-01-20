@@ -1,6 +1,6 @@
 {
   "name": "huidu_sdk",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Node implementation for huidu cards",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
