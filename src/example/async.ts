@@ -1,9 +1,9 @@
-import blessed from "blessed";
-import chalk from 'chalk';
-import { DisplayCommunicator, CandidateDevice, ConnectionState } from "../DisplayCommunicator.js";
-import DisplayDevice from "../DisplayDevice.js";
+//import blessed from "blessed";
+//import chalk from "chalk";
+import { Program, TextComponent, ParkingSpacesComponent } from "../index.js";
 
-const main = async () => {
+/*
+const bless = async () => {
 	const screen = blessed.screen({
 		smartCSR:true,
 		dockBorders: true
@@ -114,6 +114,83 @@ const main = async () => {
 	});
 
 	screen.render();
+};*/
+
+const frame = {
+	"fields": {
+		"arrow": {
+			"type": "arrow",
+			"x": 0,
+			"y": 0,
+			"width": 20,
+			"height": 20
+		},
+		"parking_name": {
+			"type": "text",
+			"x": 20,
+			"y": -2,
+			"width": 60,
+			"font": "8x13"
+		},
+		"parking_status": {
+			"type": "parking_status",
+			"x": 20,
+			"y": 9,
+			"width": 60,
+			"font": "8x13"
+		}
+	},
+	"data": {
+		"arrow": {
+			"direction": "straight"
+		},
+		"parking_name": {
+			"text": "ul. Gdańska",
+			"color": {
+				"r": 255,
+				"g": 100,
+				"b": 10
+			}
+		},
+		"parking_status": {
+			"status": "working_msg",
+			"color": {
+				"r": 222,
+				"g": 222,
+				"b": 255
+			},
+			"message": "Niska zajętość",
+			"free_spaces": 987,
+			"max_spaces": 1223
+		}
+	}
+};
+
+const convertProgram = (framedata:object) => {
+	const prog = new Program();
+	const fields = Object.entries(frame.fields);
+	const data = Object.entries(frame.data);
+
+	fields.forEach((d,i) => {
+		const component = Object.assign(d[1], data[i][1]);
+
+		switch (component.type) {
+		case "text":
+			prog.addComponent(new TextComponent(component.x, component.y, component.width, 8, 255, component.text));
+			break;
+		case "parking_status":
+			prog.addComponent(new ParkingSpacesComponent(component.x, component.y, component.width, 8, 255, component.message, component.free_spaces, component.max_spaces));
+			break;
+		default:
+			console.error("unknown component");
+		}
+	});
+
+	return prog.generate();
+};
+
+const main = () => {
+	console.log(convertProgram(frame));
 };
 
 main();
