@@ -2,6 +2,7 @@
   "name": "huidu_sdk",
   "version": "0.0.3",
   "description": "Node implementation for huidu cards",
+  "homepage": "https://github.com/KryQ/node-huidu-sdk",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -9,7 +10,7 @@
     "prepublish": "tsc"
   },
   "type": "module",
-  "author": "kryq",
+  "author": "KryQ <b@rubble.com> (https://www.kryq.me)",
   "license": "BSD 3-Clause License",
   "dependencies": {
     "@types/node": "^16.11.10",

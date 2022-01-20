@@ -218,31 +218,18 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	addProgram = (program:Program) => new Promise<boolean>(async (resolve, reject) => {
-		const addProgramXML = (guid: string): string => {
-			const kSDKServiceAsk = {
-				sdk: {
-					"@_guid": guid,
-					in: {
+
+			const payload = {
 						"@_method": "AddProgram",
 						"screen": program.generate()
-					},
-				}
-			};
-
-			const builder = new XMLBuilder({
-				ignoreAttributes: false,
-				suppressEmptyNode: true
-			});
-
-			return "<?xml version=\"1.0\" encoding=\"utf-8\"?>" + builder.build(kSDKServiceAsk);
-		};
+				};
+			
 
 		const resolver = (data: any) => {
 			resolve(true);
 		};
 
-		const data = addProgramXML(this.comm.guid);
-		const packet = this.comm.constructSdkTckPacket(data);
+		const packet = this.comm.constructSdkTckPacket(payload);
 
 		try {
 			this.comm.queue.push("AddProgram", reject, resolver, 10000);
