@@ -122,41 +122,25 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	setEth = () => new Promise<string>(async (resolve, reject) => {
-		const setEth0InfoXML = (guid: string): string => {
-			const kSDKServiceAsk = {
-				sdk: {
-					"@_guid": guid,
-					in: {
-						"@_method": "SetEth0Info",
-						eth: {
-							"@_valid": true,
-							enable: {
-								"@_value": true,
-							},
-							dhcp: {
-								"@_auto": true,
-							},
-							address: {}
-						}
-					}
+		const payload = {
+			"@_method": "SetEth0Info",
+			eth: {
+				"@_valid": true,
+				enable: {
+					"@_value": true,
 				},
-
-			};
-
-			const builder = new XMLBuilder({
-				ignoreAttributes: false,
-				suppressEmptyNode: true
-			});
-			return "<?xml version=\"1.0\" encoding=\"utf-8\"?>" + builder.build(kSDKServiceAsk);
+				dhcp: {
+					"@_auto": true,
+				},
+				address: {}
+			}
 		};
 
 		const resolver = (data: any) => {
 			resolve(data);
 		};
 
-		const data = setEth0InfoXML(this.comm.guid);
-		console.log(data);
-		const packet = this.comm.constructSdkTckPacket(data);
+		const packet = this.comm.constructSdkTckPacket(payload);
 
 		try {
 			this.comm.queue.push("SetEth0Info", reject, resolver, 10000);
@@ -178,35 +162,19 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	switchProgram = (program_guid: string, program_index: number) => new Promise<string>(async (resolve, reject) => {
-		const switchProgramXML = (guid: string): string => {
-			const kSDKServiceAsk = {
-				sdk: {
-					"@_guid": guid,
-					in: {
-						"@_method": "SwitchProgram",
-						"program": {
-							"@_guid": program_guid,
-							"@_index": program_index,
-						},
-
-					}
-				},
-
-			};
-
-			const builder = new XMLBuilder({
-				ignoreAttributes: false,
-				suppressEmptyNode: true
-			});
-			return "<?xml version=\"1.0\" encoding=\"utf-8\"?>" + builder.build(kSDKServiceAsk);
+		const payload = {
+			"@_method": "SwitchProgram",
+			"program": {
+				"@_guid": program_guid,
+				"@_index": program_index,
+			}
 		};
 
 		const resolver = (data: any) => {
 			resolve(data);
 		};
 
-		const data = switchProgramXML(this.comm.guid);
-		const packet = this.comm.constructSdkTckPacket(data);
+		const packet = this.comm.constructSdkTckPacket(payload);
 
 		try {
 			this.comm.queue.push("SwitchProgram", reject, resolver, 10000);
@@ -218,12 +186,10 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	addProgram = (program:Program) => new Promise<boolean>(async (resolve, reject) => {
-
-			const payload = {
-						"@_method": "AddProgram",
-						"screen": program.generate()
-				};
-			
+		const payload = {
+			"@_method": "AddProgram",
+			"screen": program.generate()
+		};
 
 		const resolver = (data: any) => {
 			resolve(true);
@@ -317,7 +283,7 @@ class DisplayDevice extends EventEmitter {
 		let fileType: number = null;
 		for (const [key, extensions] of Object.entries(allowedExtensions)) {
 			if (extensions.includes(fileExt)) {
-				fileType = key;
+				fileType = parseInt(key);
 				break;
 			}
 		}
@@ -358,7 +324,7 @@ class DisplayDevice extends EventEmitter {
 				return [{ "@_name": files }];
 			}
 			else {
-				const array = [];
+				const array:{"@_name": string}[] = [];
 				files.forEach((file: string) => {
 					array.push({ "@_name": file });
 				});
@@ -366,25 +332,11 @@ class DisplayDevice extends EventEmitter {
 			}
 		};
 
-		const deleteFilesXML = (guid: string, files: string | Array<string>): string => {
-			const kSDKServiceAsk = {
-				sdk: {
-					"@_guid": guid,
-					in: {
-						"@_method": "DeleteFiles",
-						"files": {
-							"file": createFilesList(files)
-						}
-					},
-				}
-			};
-
-			const builder = new XMLBuilder({
-				ignoreAttributes: false,
-				suppressEmptyNode: true
-			});
-
-			return "<?xml version=\"1.0\" encoding=\"utf-8\"?>" + builder.build(kSDKServiceAsk);
+		const payload = {
+			"@_method": "DeleteFiles",
+			"files": {
+				"file": createFilesList(files)
+			}
 		};
 
 		const resolver = (data: any) => {
@@ -398,8 +350,7 @@ class DisplayDevice extends EventEmitter {
 			}
 		};
 
-		const data = deleteFilesXML(this.comm.guid, files);
-		const packet = this.comm.constructSdkTckPacket(data);
+		const packet = this.comm.constructSdkTckPacket(payload);
 
 		try {
 			this.comm.queue.push("DeleteFiles", reject, resolver, 10000);

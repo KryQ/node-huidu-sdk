@@ -110,9 +110,7 @@ class DisplayCommunicator extends EventEmitter {
 			});
 			this.tcpVersion = serviceRequest;
 
-			const guidObj = await this.askGuid();
-
-			this.guid = guidObj?.sdk["@_guid"];
+			this.guid = await this.askGuid();
 
 			logger.log({
 				level: "info",
@@ -448,8 +446,8 @@ class DisplayCommunicator extends EventEmitter {
 			this.socket.write(serviceAsk);
 		});
 
-	private askGuid = (): Promise<object> => 
-		new Promise<object>((resolve, reject) => {
+	private askGuid = (): Promise<string> => 
+		new Promise<string>((resolve, reject) => {
 			const packet = this.constructSdkTckPacket({
 				"@_method": "GetIFVersion",
 				"version": {
@@ -459,7 +457,12 @@ class DisplayCommunicator extends EventEmitter {
 
 			this.socket.write(packet);
 
-			this.queue.push("GetIFVersion", reject, resolve, 1000);
+			//Should i define return object more precisely? 
+			const resolver = (result: {sdk:{"@_guid":string}}): void => {
+				resolve(result.sdk["@_guid"]);
+			};
+
+			this.queue.push("GetIFVersion", reject, resolver, 1000);
 		});
 
 	static decodeUdpResponse(data: Buffer): UdpPacket {

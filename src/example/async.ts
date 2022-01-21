@@ -166,31 +166,9 @@ const frame = {
 	}
 };
 
-const convertProgram = (framedata:object) => {
-	const prog = new Program();
-	const fields = Object.entries(frame.fields);
-	const data = Object.entries(frame.data);
-
-	fields.forEach((d,i) => {
-		const component = Object.assign(d[1], data[i][1]);
-
-		switch (component.type) {
-		case "text":
-			prog.addComponent(new TextComponent(component.x, component.y, component.width, 8, 255, component.text));
-			break;
-		case "parking_status":
-			prog.addComponent(new ParkingSpacesComponent(component.x, component.y, component.width, 8, 255, component.message, component.free_spaces, component.max_spaces));
-			break;
-		default:
-			console.error("unknown component");
-		}
-	});
-
-	return prog.generate();
-};
 
 const main = () => {
-	console.log(convertProgram(frame));
+	return 0;
 };
 
 main();

@@ -12,7 +12,7 @@ import ParkingSpacesComponent from "../ProgramPlanner/ParkingSpacesComponent.js"
 
 import readline from "readline";
 
-function askQuestion(query: string): Promise<number | string> {
+function askQuestion(query: string): Promise<string> {
 	const rl = readline.createInterface({
 		input: process.stdin,
 		output: process.stdout,
@@ -43,7 +43,7 @@ async function main() {
 		const card: DisplayDevice = new DisplayDevice(displayCard.address, displayCard.port);
 
 		card.on("uploadProgress", p => {
-			process.stdout.clearLine();
+			process.stdout.clearLine(0);
 			process.stdout.cursorTo(0);
 			process.stdout.write(`Progress: ${p}\r`);
 		});
@@ -84,7 +84,7 @@ async function main() {
 
 		// eslint-disable-next-line no-constant-condition
 		while (true) {
-			console.log("0 - Get Status");
+			//console.log("0 - Get Status");
 			console.log("1 - Get Brightness");
 			console.log("2 - Set Brightness");
 			console.log("3 - List file");
@@ -96,9 +96,6 @@ async function main() {
 
 			const ans: number = parseInt(await askQuestion("Please select desired option:  "));
 			switch (ans) {
-				case 0:
-					console.log(card.getState());
-					break;
 				case 1:
 					try {
 						console.log(`Current brightness: ${await card.getBrightness()}`);
@@ -108,12 +105,11 @@ async function main() {
 					}
 					break;
 				case 2:
-					const brightness: number = await askQuestion("How bright: ");
+					const brightness: number = parseInt(await askQuestion("How bright: "));
 					await card.setBrightness(brightness);
 					break;
 				case 3:
-					const fileList = await card.listFiles();
-					console.log(fileList);
+					console.log(await card.listFiles());
 					break;
 				case 4:
 					const fileList = await card.listFiles();
@@ -147,23 +143,25 @@ async function main() {
 					}
 					break;
 				case 7:
-					const program = new Program();
+					{
+						const program = new Program();
 
-					const parkingLogoComponent = new ImageComponent(0, 0, 32, 32, 255, "image.jpg");
-					const parkingNameComponent = new TextComponent(33, 0, 159, 16, 255, "ul. Wojska Polskiego");
-					const parkingSpacesComponent = new ParkingSpacesComponent(33, 16, 159, 16, 255, "miejsc", 10, 20);
-					
-					program.addComponent(parkingLogoComponent);
-					program.addComponent(parkingNameComponent);
-					program.addComponent(parkingSpacesComponent);
+						const parkingLogoComponent = new ImageComponent(0, 0, 32, 32, 255, "image.jpg");
+						const parkingNameComponent = new TextComponent(33, 0, 159, 16, 255, "ul. Wojska Polskiego");
+						const parkingSpacesComponent = new ParkingSpacesComponent(33, 16, 159, 16, 255, "miejsc", 10, 20);
+						
+						program.addComponent(parkingLogoComponent);
+						program.addComponent(parkingNameComponent);
+						program.addComponent(parkingSpacesComponent);
 
-					try {
-						await card.addProgram(program);
-					}
-					catch(e) {
-						logger.error(e.toString());
-					}
-				break;
+						try {
+							await card.addProgram(program);
+						}
+						catch(e) {
+							logger.error(e.toString());
+						}
+					break;
+				}
 				case 8:
 					try {
 					await card.setEth();
