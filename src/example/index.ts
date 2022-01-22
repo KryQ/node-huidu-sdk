@@ -25,7 +25,7 @@ function askQuestion(query: string): Promise<string> {
 }
 
 async function main() {
-	const devicesList = await DisplayCommunicator.searchForDevices("192.168.10.255", 10001, 2000);
+	const devicesList = await DisplayCommunicator.searchForDevices("192.168.1.255", 10001, 2000);
 
 	if (devicesList.length) {
 		if (devicesList.length > 1) {
@@ -39,7 +39,6 @@ async function main() {
 		//Selecting first card
 		const displayCard: CandidateDevice = devicesList[0];
 
-		
 		const card: DisplayDevice = new DisplayDevice(displayCard.address, displayCard.port);
 
 		card.on("uploadProgress", p => {
@@ -93,6 +92,8 @@ async function main() {
 			console.log("6 - Start video program");
 			console.log("7 - Start parking program");
 			console.log("8 - Set ETH to DHCP");
+			console.log("9 - Set Device Name");
+			console.log("10 - Get Device Name");
 
 			const ans: number = parseInt(await askQuestion("Please select desired option:  "));
 			switch (ans) {
@@ -171,7 +172,29 @@ async function main() {
 						logger.error(e.toString());
 					}
 					break;
-				default: console.log("UNKNOWN OPTION"); process.exit(0);
+					case 9:
+						try {
+							const devName: string = await askQuestion("Device name: ");
+						await card.setName(devName);
+						}
+						catch (e) {
+							console.log(e);
+							logger.error(e.toString());
+						}
+						break;
+						case 10:
+					try {
+						console.log(`Device name: ${await card.getName()}`);
+					}
+					catch (e) {
+						console.log("Error while fetching data");
+					}
+					break;
+				default: {
+					console.log("UNKNOWN OPTION"); 
+					await card.deinit();
+					process.exit(0);
+				}
 			}
 		}
 	}

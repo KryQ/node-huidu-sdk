@@ -3,8 +3,9 @@ import net from "net";
 
 import EventEmitter from "events";
 
-import { CmdType, ErrorCode } from "./SdkConstants.js";
+import { CmdType, SdkErrorCode } from "./SdkConstants.js";
 import { TcpQueue } from "./helpers/TcpQueue.js";
+import {ErrorCode, SuccessCode} from "./utils/ReturnCodes.js";
 
 import logger from "./utils/logger.js";
 
@@ -48,7 +49,7 @@ class DisplayCommunicator extends EventEmitter {
 	socket: net.Socket;
 	connectionState: ConnectionState;
 	lastHeartbeat: Date;
-	heartbeatTimeoutHandle: any = null;
+	heartbeatTimeoutHandle: ReturnType<typeof setInterval> = null;
 	heartbeatCheckInterval = 2; //in minutes
 	queue: TcpQueue;
 
@@ -69,6 +70,7 @@ class DisplayCommunicator extends EventEmitter {
 
 		this.socket = new net.Socket();
 		this.socket.on("data", this.responseListener);
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		this.socket.on("close", (error) => {
 			this.changeConnectionState(ConnectionState.DISCONNECTED);
 			this.deinit();
@@ -89,7 +91,7 @@ class DisplayCommunicator extends EventEmitter {
 		this.changeConnectionState(ConnectionState.SETTING_UP);
 
 		if(this.connectionState===ConnectionState.CONNECTED) {
-			reject("already connected");
+			reject(ErrorCode.ALREADY_CONNECTED);
 			return;
 		}
 		
@@ -104,18 +106,12 @@ class DisplayCommunicator extends EventEmitter {
 		try {
 			logger.debug("dc conn 1");
 			const serviceRequest = await this.askServiceVersion();
-			logger.log({
-				level: "info",
-				message: `TCP ver: ${serviceRequest}`
-			});
-			this.tcpVersion = serviceRequest;
+			logger.info(`TCP ver: ${serviceRequest}`);
 
+			this.tcpVersion = serviceRequest;
 			this.guid = await this.askGuid();
 
-			logger.log({
-				level: "info",
-				message: `GUID: ${this.guid}`
-			});
+			logger.info(`GUID: ${this.guid}`);
 
 			this.heartbeatTimeoutHandle = setTimeout(() => {
 				this.changeConnectionState(ConnectionState.LOST_COMMUNICATION);
@@ -217,7 +213,7 @@ class DisplayCommunicator extends EventEmitter {
 		case CmdType.kErrorAnswer: {
 			tcpResponse.data = Buffer.alloc(2);
 			data.copy(tcpResponse.data, 0, 4, 6);
-			logger.error(`Got error anwser ${ErrorCode[tcpResponse.data.readUInt16LE()]} ${tcpResponse.data.readUInt16LE()}`);
+			logger.error(`Got error anwser ${SdkErrorCode[tcpResponse.data.readUInt16LE()]} ${tcpResponse.data.readUInt16LE()}`);
 		}
 			break;
 		case CmdType.kFileStartAnswer: {
@@ -233,10 +229,10 @@ class DisplayCommunicator extends EventEmitter {
 
 			if (req) {
 				if (responseSizeBuffer.readUInt16LE() || responseErrorBuffer.readUInt16LE()) {
-					req.reject(new Error("File already exists"));
+					req.reject(ErrorCode.FILE_ALREADY_EXISTS);
 				}
 				else {
-					req.resolve("OK");
+					req.resolve(SuccessCode.OK);
 				}
 			}
 		}
@@ -329,9 +325,11 @@ class DisplayCommunicator extends EventEmitter {
 		return buff;
 	};
 
+	//TODO: Change return type from any to something more suitable
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	sdkCmdGet = (cmd: string, timeout = 1000): Promise<any> => new Promise<any>((resolve, reject) => {
 		if(this.connectionState!==ConnectionState.CONNECTED) {
-			reject("not connected");
+			reject(ErrorCode.NOT_CONNECTED);
 			return;
 		}
 
@@ -339,11 +337,17 @@ class DisplayCommunicator extends EventEmitter {
 			"@_method": cmd
 		});
 
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const resolver = (data: any):any => {
+			resolve(data.sdk.out);
+			return;
+		};
+
 		try {
-			this.queue.push(cmd, reject, resolve, timeout);
+			this.queue.push(cmd, reject, resolver, timeout);
 			this.socket.write(packet);
 		} catch (e) {
-			reject("already pending");
+			reject(ErrorCode.REQUEST_PENDING);
 		}
 	});
 
@@ -413,7 +417,7 @@ class DisplayCommunicator extends EventEmitter {
 
 	endFileTransfer = () => new Promise((resolve, reject) => {
 		if(this.connectionState!==ConnectionState.CONNECTED) {
-			reject("not connected");
+			reject(ErrorCode.NOT_CONNECTED);
 		}
 
 		const buff = Buffer.alloc(4, 0);
@@ -501,7 +505,7 @@ class DisplayCommunicator extends EventEmitter {
 					message.length,
 					port,
 					network,
-					function (err, bytes) {
+					function (err) {
 						if (err) reject(err);
 					}
 				);
@@ -512,8 +516,8 @@ class DisplayCommunicator extends EventEmitter {
 				resolve(devices);
 			}, timeout);
 
-			discoverySocket.on("message", function (raw_response, remote) {
-				const response = DisplayCommunicator.decodeUdpResponse(raw_response);
+			discoverySocket.on("message", function (rawResponse, remote) {
+				const response = DisplayCommunicator.decodeUdpResponse(rawResponse);
 
 				if (response.header === CmdType.kSearchDeviceAnswer) {
 					devices.push({ name: response.payload, address: remote.address, port: remote.port });

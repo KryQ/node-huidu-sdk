@@ -54,7 +54,7 @@ enum CmdType {
     kReadFileAnswer = 0x8008,       ///< 回读文件应答
 }
 
-enum ErrorCode {
+enum SdkErrorCode {
     kSuccess = 0,
     kWriteFinish,           ///< 写文件完成
     kProcessError,          ///< 流程错误
@@ -111,4 +111,4 @@ enum ErrorCode {
     kCount,
 }
 
-export { CmdType, ErrorCode, EffectType };
+export { CmdType, SdkErrorCode, EffectType };

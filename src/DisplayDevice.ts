@@ -6,11 +6,10 @@ import fs from "fs";
 import crypto from "crypto";
 import EventEmitter from "events";
 
-import { XMLBuilder } from "fast-xml-parser";
-
 import { ConnectionState, DisplayCommunicator } from "./DisplayCommunicator.js";
 
 import logger from "./utils/logger.js";
+import {ErrorCode, SuccessCode} from "./utils/ReturnCodes.js";
 import { Program } from "./ProgramPlanner/Program.js";
 
 class DisplayDevice extends EventEmitter {
@@ -28,9 +27,13 @@ class DisplayDevice extends EventEmitter {
 		this.comm.on("connectionStateChange", state => this.emit("connectionStateChange", state));
 	}
 
+	/**
+	 * @returns Promise boolean - true if connected
+	 * @throws string error
+	 */
 	init = async (): Promise<boolean> => new Promise(async (resolve, reject) => {
 		if(this.comm.connectionState===ConnectionState.SETTING_UP || this.comm.connectionState===ConnectionState.CONNECTED) {
-			reject("Already connecting");
+			reject(ErrorCode.ALREADY_CONNECTING);
 		}
 
 		logger.debug("dd init 1");
@@ -56,12 +59,35 @@ class DisplayDevice extends EventEmitter {
 	getName = async (): Promise<string> => {
 		try {
 			const obj = await this.comm.sdkCmdGet("GetDeviceName", 1000);
-			return (obj.sdk?.out?.name["@_value"]);
+			return (obj.name["@_value"]);
 		}
 		catch (e) {
 			throw new Error(e);
 		}
 	};
+
+	setName = async (name:string): Promise<boolean> => new Promise<boolean>((resolve, reject) => {
+		const payload = {
+			"@_method": "SetDeviceName",
+			"name": {
+				"@_value": name
+			}
+		};
+
+		const resolver = (data: any) => {
+			resolve(true);
+		};
+
+		const packet = this.comm.constructSdkTckPacket(payload);
+
+		try {
+			this.comm.queue.push("SetDeviceName", reject, resolver, 1000);
+		}
+		catch (e) {
+			reject(e);
+		}
+		this.comm.socket.write(packet);
+	});
 
 	setBrightness = (brigth: number) => new Promise<number>((resolve, reject) => {
 		const payload = {
@@ -104,7 +130,7 @@ class DisplayDevice extends EventEmitter {
 	getBrightness = () => new Promise<number>(async (resolve, reject) => {
 		try {
 			const obj = await this.comm.sdkCmdGet("GetLuminancePloy", 1000);
-			resolve(obj.sdk?.out?.default["@_value"]);
+			resolve(obj.default["@_value"]);
 		}
 		catch (e) {
 			reject(e);
@@ -265,7 +291,7 @@ class DisplayDevice extends EventEmitter {
 		}
 
 		if (fileName.match(/[^\x00-\x7F]/g)) {
-			reject("Filename contains illegal characters");
+			reject(ErrorCode.INVALID_FILENAME);
 			return;
 		}
 
@@ -289,7 +315,7 @@ class DisplayDevice extends EventEmitter {
 		}
 
 		if (fileType === null) {
-			reject("Unknown file type: ." + fileExt);
+			reject(ErrorCode.INVALID_FILETYPE);
 			return;
 		}
 
@@ -301,7 +327,7 @@ class DisplayDevice extends EventEmitter {
 				await this.comm.transferFile(file);
 				await this.comm.endFileTransfer();
 
-				resolve("file transfer ok");
+				resolve(SuccessCode.FILE_TRANSFER_OK);
 			} catch (e) {
 				reject(e);
 			}
@@ -341,7 +367,7 @@ class DisplayDevice extends EventEmitter {
 
 		const resolver = (data: any) => {
 			if (data.sdk.out.files.file["@_result"] === "kFileNotFound") {
-				reject("kFileNotfound"); // file not found
+				reject(ErrorCode.FILE_NOT_FOUND); // file not found
 				return;
 			}
 			else {
