@@ -137,10 +137,20 @@ class DisplayDevice extends EventEmitter {
 		}
 	});
 
+	getDeviceInfo = () => new Promise<object>(async (resolve, reject) => {
+		try {
+			const obj = await this.comm.sdkCmdGet("GetDeviceInfo", 1000);
+			resolve(obj);
+		}
+		catch (e) {
+			reject(e);
+		}
+	});
+
 	getNetworkInfo = () => new Promise<number>(async (resolve, reject) => {
 		try {
 			const obj = await this.comm.sdkCmdGet("GetNetworkInfo", 1000);
-			resolve(obj.sdk?.out);
+			resolve(obj);
 		}
 		catch (e) {
 			reject(e);
@@ -272,22 +282,32 @@ class DisplayDevice extends EventEmitter {
 		}
 	};
 
-	uploadFile = (filePath: string, fileName: string = null) => new Promise<string>(async (resolve, reject) => {
+	uploadFile = (filePath: string|Buffer, fileName: string = null) => new Promise<string>(async (resolve, reject) => {
 		let file: Buffer = null;
-		try {
-			file = await fs.promises.readFile(filePath);
-		}
-		catch (e) {
-			reject(e);
-			return;
-		}
+		if(typeof filePath === "string") {
+			try {
+				file = await fs.promises.readFile(filePath);
 
-		if (!fileName) {
-			logger.debug("Filename not predefined - creating");
+				if (!fileName) {
+					logger.debug("Filename not predefined - creating");
+		
+					const tmpFilePath = filePath.split(/[\\/]/);
+					fileName = tmpFilePath[tmpFilePath.length - 1];
+					fileName = fileName.replace(/[^\x00-\x7F]/g, "");
+				}
+			}
+			catch (e) {
+				reject(e);
+				return;
+			}
+		}
+		else {
+			file = filePath;
 
-			const tmpFilePath = filePath.split(/[\\/]/);
-			fileName = tmpFilePath[tmpFilePath.length - 1];
-			fileName = fileName.replace(/[^\x00-\x7F]/g, "");
+			if(!fileName) {
+				reject(ErrorCode.INVALID_FILENAME);
+				return;
+			}
 		}
 
 		if (fileName.match(/[^\x00-\x7F]/g)) {

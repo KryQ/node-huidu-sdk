@@ -14,7 +14,7 @@ class TextComponent implements ComponentInterface {
 	private justify = "left";
 	private color = "#FFFFFF";
 
-	constructor(x:number,y:number,width:number,height:number,alpha:number, text:string) {
+	constructor(x:number, y:number, width:number, height:number, alpha:number, text:string) {
 		this.x = x;
 		this.y = y;
 		this.width = width;
