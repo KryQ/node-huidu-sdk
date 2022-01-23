@@ -386,7 +386,7 @@ class DisplayDevice extends EventEmitter {
 		};
 
 		const resolver = (data: any) => {
-			if (data.files.file["@_result"] === "kFileNotFound") {
+			if (data["@_result"] === "kFileNotFound") {
 				reject(ErrorCode.FILE_NOT_FOUND); // file not found
 				return;
 			}
