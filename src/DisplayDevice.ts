@@ -266,7 +266,6 @@ class DisplayDevice extends EventEmitter {
 	listFiles = async (): Promise<Array<object>> => {
 		try {
 			const arr = await this.comm.sdkCmdGet("GetFiles", 1000);
-			console.log(arr);
 			if (arr) {
 				for (const obj of arr.files.file) {
 					delete Object.assign(obj, { ["type"]: obj["@_type"] })["@_type"];
@@ -387,7 +386,7 @@ class DisplayDevice extends EventEmitter {
 		};
 
 		const resolver = (data: any) => {
-			if (data.sdk.out.files.file["@_result"] === "kFileNotFound") {
+			if (data.files.file["@_result"] === "kFileNotFound") {
 				reject(ErrorCode.FILE_NOT_FOUND); // file not found
 				return;
 			}
