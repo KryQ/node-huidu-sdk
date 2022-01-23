@@ -266,8 +266,9 @@ class DisplayDevice extends EventEmitter {
 	listFiles = async (): Promise<Array<object>> => {
 		try {
 			const arr = await this.comm.sdkCmdGet("GetFiles", 1000);
+			console.log(arr);
 			if (arr) {
-				for (const obj of arr.sdk.out.files.file) {
+				for (const obj of arr.files.file) {
 					delete Object.assign(obj, { ["type"]: obj["@_type"] })["@_type"];
 					delete Object.assign(obj, { ["size"]: obj["@_size"] })["@_size"];
 					delete obj["@_existSize"];
@@ -275,7 +276,7 @@ class DisplayDevice extends EventEmitter {
 					delete Object.assign(obj, { ["name"]: obj["@_name"] })["@_name"];
 				}
 			}
-			return arr.sdk.out.files.file;
+			return arr.files.file;
 		}
 		catch (e) {
 			throw new Error(e);
