@@ -7,6 +7,7 @@ class TextComponent implements ComponentInterface {
 	width:number;
 	height:number;
 	alpha:number;
+	font: string;
 	text:string;
 
 	private singleLine = false;
@@ -14,15 +15,18 @@ class TextComponent implements ComponentInterface {
 	private justify = "left";
 	private color = "#FFFFFF";
 
-	constructor(x:number, y:number, width:number, height:number, alpha:number, text:string) {
+	constructor(x:number, y:number, width:number, height:number, alpha:number, font: string, text:string) {
 		this.x = x;
 		this.y = y;
 		this.width = width;
 		this.height = height;
 		this.alpha = alpha;
+		this.font = font;
 
 		this.text = text;
-		if(text.length>18) {
+
+		const fontWidth = 8;
+		if(text.length>=(this.width/fontWidth)-1) {
 			this.setSlidingText(true);
 		}
 	}
@@ -70,17 +74,18 @@ class TextComponent implements ComponentInterface {
 					},
 					"string": this.text,
 					"font": {
-						"@_name": "5x8.bdf",
+						"@_name": this.font,
 						"@_italic": false,
 						"@_bold": false,
 						"@_underline": false,
 						"@_size": this.height,
 						"@_color": this.color,
 					},
+
 					"effect": {
 						"@_in": this.effectIn,
 						"@_out": 0,
-						"@_inSpeed": 8,
+						"@_inSpeed": 5,
 						"@_outSpeed": 0,
 						"@_duration": 10,
 					}

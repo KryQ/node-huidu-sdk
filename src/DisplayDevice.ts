@@ -279,10 +279,10 @@ class DisplayDevice extends EventEmitter {
 		this.comm.socket.write(packet);
 	});
 
-	getAllFonts = () => new Promise<string>(async (resolve, reject) => {
+	listFonts = () => new Promise<string>(async (resolve, reject) => {
 		try {
 			const obj = await this.comm.sdkCmdGet("GetAllFontInfo", 1000);
-			resolve(obj.sdk);
+			resolve(obj);
 		}
 		catch (e) {
 			reject(e);
@@ -292,7 +292,7 @@ class DisplayDevice extends EventEmitter {
 	reloadAllFonts = () => new Promise<number>(async (resolve, reject) => {
 		try {
 			const obj = await this.comm.sdkCmdGet("ReloadAllFonts", 1000);
-			resolve(obj.sdk?.out);
+			resolve(obj);
 		}
 		catch (e) {
 			reject(e);

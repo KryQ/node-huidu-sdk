@@ -219,11 +219,9 @@ class DisplayCommunicator extends EventEmitter {
 		case CmdType.kFileStartAnswer: {
 			const responseErrorBuffer = Buffer.alloc(2);
 			data.copy(responseErrorBuffer, 0, 4, 6);
-			logger.debug(`Got response anwser ${responseErrorBuffer.readUInt16LE()}`);
 
 			const responseSizeBuffer = Buffer.alloc(8);
 			data.copy(responseSizeBuffer, 0, 6, 14);
-			logger.debug(`Got response size anwser ${responseSizeBuffer.readUInt16LE()}`);
 
 			const req = this.queue.read("AddFiles");
 

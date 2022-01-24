@@ -3,8 +3,7 @@
 import logger from "../utils/logger.js";
 import {
   DisplayCommunicator,
-  CandidateDevice,
-  ConnectionState,
+  CandidateDevice
 } from "../DisplayCommunicator.js";
 import DisplayDevice from "../DisplayDevice.js";
 
@@ -68,7 +67,7 @@ const selectDevice = async (
 
 async function main() {
   const devicesList = await DisplayCommunicator.searchForDevices(
-    "192.168.10.255",
+    "192.168.1.255",
     10001,
     2000
   );
@@ -86,7 +85,7 @@ async function main() {
       await selectDevice(devicesList, 0);
     }
 
-    //This reconnection is going to blow in somebody face. Maybe somebody will wind better option
+    //This reconnection is going to blow in somebody face. Maybe somebody will find better option
     // card.on("connectionStateChange", async (state) => {
     //   logger.debug(`Connection state: ${state}`);
 
@@ -125,6 +124,7 @@ async function main() {
       console.log("11 - Get Device Info");
       console.log("12 - Get Programs");
       console.log("13 - Set Boot Logo");
+      console.log("14 - Reload all fonts");
 
       const ans: number = parseInt(
         await askQuestion("Please select desired option:  ")
@@ -202,6 +202,7 @@ async function main() {
             48,
             8,
             255,
+            "Arial",
             "ul. Wojska Polskiego"
           );
           const parkingSpacesComponent = new ParkingSpacesComponent(
@@ -210,7 +211,9 @@ async function main() {
             48,
             8,
             255,
+            "Arial",
             "miejsc",
+            "working",
             10,
             20
           );
@@ -273,15 +276,23 @@ async function main() {
         case 13:
           {
             const bootLogo: string = await askQuestion("Input file name: ");
-            try{
+            try {
               await card.setBootLogo(bootLogo);
-            }
-            catch (e) {
+            } catch (e) {
               console.error(e);
             }
           }
           break;
-          default: {
+        case 14:
+          {
+            try {
+              await card.reloadAllFonts();
+            } catch (e) {
+              console.error(e);
+            }
+          }
+          break;
+        default: {
           console.log("UNKNOWN OPTION");
           await card.deinit();
           process.exit(0);
