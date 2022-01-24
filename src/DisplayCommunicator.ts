@@ -328,10 +328,10 @@ class DisplayCommunicator extends EventEmitter {
 	//TODO: Change return type from any to something more suitable
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	sdkCmdGet = (cmd: string, timeout = 1000): Promise<any> => new Promise<any>((resolve, reject) => {
-		if(this.connectionState!==ConnectionState.CONNECTED) {
-			reject(ErrorCode.NOT_CONNECTED);
-			return;
-		}
+		// if(this.connectionState!==ConnectionState.CONNECTED) {
+		// 	reject(new Error(ErrorCode.NOT_CONNECTED);
+		// 	return;
+		// }
 
 		const packet = this.constructSdkTckPacket({
 			"@_method": cmd
@@ -416,9 +416,9 @@ class DisplayCommunicator extends EventEmitter {
 	};
 
 	endFileTransfer = () => new Promise((resolve, reject) => {
-		if(this.connectionState!==ConnectionState.CONNECTED) {
-			reject(ErrorCode.NOT_CONNECTED);
-		}
+		// if(this.connectionState!==ConnectionState.CONNECTED) {
+		// 	reject(new Error(ErrorCode.NOT_CONNECTED));
+		// }
 
 		const buff = Buffer.alloc(4, 0);
 

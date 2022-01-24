@@ -74,7 +74,7 @@ class TextComponent implements ComponentInterface {
 						"@_italic": false,
 						"@_bold": false,
 						"@_underline": false,
-						"@_size": 16,
+						"@_size": this.height,
 						"@_color": this.color,
 					},
 					"effect": {

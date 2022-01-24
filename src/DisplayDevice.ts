@@ -10,6 +10,7 @@ import { ConnectionState, DisplayCommunicator } from "./DisplayCommunicator.js";
 
 import logger from "./utils/logger.js";
 import {ErrorCode, SuccessCode} from "./utils/ReturnCodes.js";
+import { DeviceFile } from "./utils/Types.js";
 import { Program } from "./ProgramPlanner/Program.js";
 
 class DisplayDevice extends EventEmitter {
@@ -67,6 +68,11 @@ class DisplayDevice extends EventEmitter {
 	};
 
 	setName = async (name:string): Promise<boolean> => new Promise<boolean>((resolve, reject) => {
+		if(!name.length || name.length>15) {
+			reject(new Error(ErrorCode.ARGUMENT_INVALID));
+			return;
+		}
+		
 		const payload = {
 			"@_method": "SetDeviceName",
 			"name": {
@@ -74,7 +80,7 @@ class DisplayDevice extends EventEmitter {
 			}
 		};
 
-		const resolver = (data: any) => {
+		const resolver = () => {
 			resolve(true);
 		};
 
@@ -90,6 +96,11 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	setBrightness = (brigth: number) => new Promise<number>((resolve, reject) => {
+		if(brigth<1 || brigth>100) {
+			reject(new Error(ErrorCode.ARGUMENT_INVALID));
+			return;
+		}
+
 		const payload = {
 			"@_method": "SetLuminancePloy",
 			"mode": {
@@ -112,7 +123,7 @@ class DisplayDevice extends EventEmitter {
 			}
 		};
 
-		const resolver = (data: any) => {
+		const resolver = () => {
 			resolve(brigth);
 		};
 
@@ -157,7 +168,8 @@ class DisplayDevice extends EventEmitter {
 		}
 	});
 
-	setEth = () => new Promise<string>(async (resolve, reject) => {
+	//TODO: Create interface for eth settings
+	setEth = () => new Promise<boolean>(async (resolve, reject) => {
 		const payload = {
 			"@_method": "SetEth0Info",
 			eth: {
@@ -172,8 +184,8 @@ class DisplayDevice extends EventEmitter {
 			}
 		};
 
-		const resolver = (data: any) => {
-			resolve(data);
+		const resolver = () => {
+			resolve(true);
 		};
 
 		const packet = this.comm.constructSdkTckPacket(payload);
@@ -190,24 +202,24 @@ class DisplayDevice extends EventEmitter {
 	getProgram = () => new Promise<string>(async (resolve, reject) => {
 		try {
 			const obj = await this.comm.sdkCmdGet("GetProgram", 1000);
-			resolve(obj.sdk);
+			resolve(obj);
 		}
 		catch (e) {
 			reject(e);
 		}
 	});
 
-	switchProgram = (program_guid: string, program_index: number) => new Promise<string>(async (resolve, reject) => {
+	switchProgram = (programGuid: string, programIndex: number) => new Promise<boolean>(async (resolve, reject) => {
 		const payload = {
 			"@_method": "SwitchProgram",
 			"program": {
-				"@_guid": program_guid,
-				"@_index": program_index,
+				"@_guid": programGuid,
+				"@_index": programIndex,
 			}
 		};
 
-		const resolver = (data: any) => {
-			resolve(data);
+		const resolver = () => {
+			resolve(true);
 		};
 
 		const packet = this.comm.constructSdkTckPacket(payload);
@@ -227,7 +239,7 @@ class DisplayDevice extends EventEmitter {
 			"screen": program.generate()
 		};
 
-		const resolver = (data: any) => {
+		const resolver = () => {
 			resolve(true);
 		};
 
@@ -241,6 +253,30 @@ class DisplayDevice extends EventEmitter {
 		}
 
 		this.comm.socket.write(packet, "utf-8");
+	});
+
+	setBootLogo = async (name:string): Promise<boolean> => new Promise<boolean>((resolve, reject) => {
+		const payload = {
+			"@_method": "SetBootLogoName",
+			"logo": {
+				"@_name": name,
+				"@_md5": ""
+			}
+		};
+
+		const resolver = () => {
+			resolve(true);
+		};
+
+		const packet = this.comm.constructSdkTckPacket(payload);
+
+		try {
+			this.comm.queue.push("SetBootLogoName", reject, resolver, 1000);
+		}
+		catch (e) {
+			reject(e);
+		}
+		this.comm.socket.write(packet);
 	});
 
 	getAllFonts = () => new Promise<string>(async (resolve, reject) => {
@@ -263,19 +299,16 @@ class DisplayDevice extends EventEmitter {
 		}
 	});
 
-	listFiles = async (): Promise<Array<object>> => {
+	listFiles = async (): Promise<DeviceFile[]> => {
 		try {
+			const result: DeviceFile[] = [];
 			const arr = await this.comm.sdkCmdGet("GetFiles", 1000);
 			if (arr) {
 				for (const obj of arr.files.file) {
-					delete Object.assign(obj, { ["type"]: obj["@_type"] })["@_type"];
-					delete Object.assign(obj, { ["size"]: obj["@_size"] })["@_size"];
-					delete obj["@_existSize"];
-					delete Object.assign(obj, { ["md5"]: obj["@_md5"] })["@_md5"];
-					delete Object.assign(obj, { ["name"]: obj["@_name"] })["@_name"];
+					result.push({name: obj["@_name"], size: obj["@_size"], type: obj["@_type"], md5: obj["@_md5"]});
 				}
 			}
-			return arr.files.file;
+			return result;
 		}
 		catch (e) {
 			throw new Error(e);
@@ -342,7 +375,7 @@ class DisplayDevice extends EventEmitter {
 		const fileMd5 = crypto.createHash("md5").update(file).digest("hex");
 		const packet = this.comm.constructFileTransferPacket(fileName, file.length, fileType, fileMd5);
 
-		const resolver = async (data: any) => {
+		const resolver = async () => {
 			try {
 				await this.comm.transferFile(file);
 				await this.comm.endFileTransfer();
@@ -385,6 +418,7 @@ class DisplayDevice extends EventEmitter {
 			}
 		};
 
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const resolver = (data: any) => {
 			if (data["@_result"] === "kFileNotFound") {
 				reject(ErrorCode.FILE_NOT_FOUND); // file not found

@@ -32,11 +32,14 @@ function askQuestion(query: string): Promise<string> {
   );
 }
 
-const selectDevice = async (devicesList: CandidateDevice[], id:number=null) => {
+const selectDevice = async (
+  devicesList: CandidateDevice[],
+  id: number = null
+) => {
   console.log(devicesList.map((d, i) => `${i} - ${d.address}:${d.port}`));
 
   let deviceId = 0;
-  if(id===null) 
+  if (id === null)
     deviceId = Number(await askQuestion("Select device number: "));
 
   if (card) {
@@ -49,23 +52,23 @@ const selectDevice = async (devicesList: CandidateDevice[], id:number=null) => {
   );
 
   try {
-	await card.init();
+    await card.init();
   } catch (e) {
-	logger.error(e);
+    logger.error(e);
   }
 
   logger.info(`Card name: ${card.name}`);
 
   card.on("uploadProgress", (p) => {
-	process.stdout.clearLine(0);
-	process.stdout.cursorTo(0);
-	process.stdout.write(`Progress: ${p}\r`);
+    process.stdout.clearLine(0);
+    process.stdout.cursorTo(0);
+    process.stdout.write(`Progress: ${p}\r`);
   });
 };
 
 async function main() {
   const devicesList = await DisplayCommunicator.searchForDevices(
-    "192.168.1.255",
+    "192.168.10.255",
     10001,
     2000
   );
@@ -79,10 +82,9 @@ async function main() {
       });
 
       await selectDevice(devicesList);
+    } else {
+      await selectDevice(devicesList, 0);
     }
-	else {
-		await selectDevice(devicesList, 0);
-	}
 
     //This reconnection is going to blow in somebody face. Maybe somebody will wind better option
     // card.on("connectionStateChange", async (state) => {
@@ -107,7 +109,6 @@ async function main() {
     //   }
     // });
 
-
     // eslint-disable-next-line no-constant-condition
     while (true) {
       console.log("0 - Change device");
@@ -122,13 +123,15 @@ async function main() {
       console.log("9 - Set Device Name");
       console.log("10 - Get Device Name");
       console.log("11 - Get Device Info");
+      console.log("12 - Get Programs");
+      console.log("13 - Set Boot Logo");
 
       const ans: number = parseInt(
         await askQuestion("Please select desired option:  ")
       );
       switch (ans) {
         case 0:
-			selectDevice(devicesList);
+          selectDevice(devicesList);
           break;
         case 1:
           try {
@@ -188,24 +191,24 @@ async function main() {
           const parkingLogoComponent = new ImageComponent(
             0,
             0,
-            32,
-            32,
+            16,
+            16,
             255,
-            "image.jpg"
+            "logo.png"
           );
           const parkingNameComponent = new TextComponent(
-            33,
-            0,
-            159,
             16,
+            0,
+            48,
+            8,
             255,
             "ul. Wojska Polskiego"
           );
           const parkingSpacesComponent = new ParkingSpacesComponent(
-            33,
             16,
-            159,
-            16,
+            8,
+            48,
+            8,
             255,
             "miejsc",
             10,
@@ -257,7 +260,28 @@ async function main() {
             logger.error(e.toString());
           }
           break;
-        default: {
+        case 12:
+          try {
+            console.log(
+              `Info: ${JSON.stringify(await card.getProgram(), null, 2)}`
+            );
+          } catch (e) {
+            console.log(e);
+            logger.error(e.toString());
+          }
+          break;
+        case 13:
+          {
+            const bootLogo: string = await askQuestion("Input file name: ");
+            try{
+              await card.setBootLogo(bootLogo);
+            }
+            catch (e) {
+              console.error(e);
+            }
+          }
+          break;
+          default: {
           console.log("UNKNOWN OPTION");
           await card.deinit();
           process.exit(0);
