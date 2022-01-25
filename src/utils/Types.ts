@@ -5,4 +5,13 @@ type DeviceFile = {
 	name: string
 };
 
-export {DeviceFile};
+//<font name="##value" file="##value" bold="##value" italic="##value" underline="##value"/>
+type DeviceFont = {
+	name: string,
+	file: string,
+	bold: boolean,
+	italic: boolean,
+	underline: boolean
+}
+
+export {DeviceFile, DeviceFont};

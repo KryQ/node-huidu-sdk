@@ -10,7 +10,7 @@ import { ConnectionState, DisplayCommunicator } from "./DisplayCommunicator.js";
 
 import logger from "./utils/logger.js";
 import {ErrorCode, SuccessCode} from "./utils/ReturnCodes.js";
-import { DeviceFile } from "./utils/Types.js";
+import { DeviceFile, DeviceFont } from "./utils/Types.js";
 import { Program } from "./ProgramPlanner/Program.js";
 
 class DisplayDevice extends EventEmitter {
@@ -202,7 +202,7 @@ class DisplayDevice extends EventEmitter {
 	getProgram = () => new Promise<string>(async (resolve, reject) => {
 		try {
 			const obj = await this.comm.sdkCmdGet("GetProgram", 1000);
-			resolve(obj);
+			resolve(JSON.stringify(obj));
 		}
 		catch (e) {
 			reject(e);
@@ -279,10 +279,22 @@ class DisplayDevice extends EventEmitter {
 		this.comm.socket.write(packet);
 	});
 
-	listFonts = () => new Promise<string>(async (resolve, reject) => {
+	listFonts = () => new Promise<DeviceFont[]>(async (resolve, reject) => {
 		try {
 			const obj = await this.comm.sdkCmdGet("GetAllFontInfo", 1000);
-			resolve(obj);
+			const fonts: DeviceFont[] = [];
+
+			for(const font of obj.fonts.font) {
+				fonts.push({
+					name: font["@_name"], 
+					file: font["@_file"], 
+					bold: font["@_bold"]==="true", 
+					underline: font["@_underline"]==="true", 
+					italic: font["@_italic"]==="true"
+				});
+			}
+
+			resolve(fonts);
 		}
 		catch (e) {
 			reject(e);
