@@ -449,13 +449,12 @@ class DisplayDevice extends EventEmitter {
 
 		try {
 			this.comm.queue.push("DeleteFiles", reject, resolver, 10000);
+			this.comm.socket.write(packet, "utf-8");
 		}
 		catch (e) {
 			reject(e);
 			return;
 		}
-
-		this.comm.socket.write(packet, "utf-8");
 	});
 }
 
