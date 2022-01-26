@@ -167,8 +167,19 @@ const frame = {
 };
 
 
+const throws = () => {
+	console.log("WOW SUCH ");
+	throw new Error("TEST Error");
+};
+
 const main = () => {
-	return 0;
+	try {
+		throws();
+		console.log("DONE");
+	}
+	catch (e) {
+		console.error(e);
+	}
 };
 
 main();

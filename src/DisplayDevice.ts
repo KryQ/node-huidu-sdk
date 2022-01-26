@@ -88,11 +88,12 @@ class DisplayDevice extends EventEmitter {
 
 		try {
 			this.comm.queue.push("SetDeviceName", reject, resolver, 1000);
+			this.comm.socket.write(packet);
 		}
 		catch (e) {
 			reject(e);
 		}
-		this.comm.socket.write(packet);
+		
 	});
 
 	setBrightness = (brigth: number) => new Promise<number>((resolve, reject) => {
@@ -131,11 +132,11 @@ class DisplayDevice extends EventEmitter {
 
 		try {
 			this.comm.queue.push("SetLuminancePloy", reject, resolver, 1000);
+			this.comm.socket.write(packet);
 		}
 		catch (e) {
 			reject(e);
 		}
-		this.comm.socket.write(packet);
 	});
 
 	getBrightness = () => new Promise<number>(async (resolve, reject) => {
@@ -192,11 +193,12 @@ class DisplayDevice extends EventEmitter {
 
 		try {
 			this.comm.queue.push("SetEth0Info", reject, resolver, 10000);
+			this.comm.socket.write(packet);
 		}
 		catch (e) {
 			reject(e);
 		}
-		this.comm.socket.write(packet);
+		
 	});
 
 	getProgram = () => new Promise<string>(async (resolve, reject) => {
@@ -226,11 +228,12 @@ class DisplayDevice extends EventEmitter {
 
 		try {
 			this.comm.queue.push("SwitchProgram", reject, resolver, 10000);
+			this.comm.socket.write(packet);
 		}
 		catch (e) {
 			reject(e);
 		}
-		this.comm.socket.write(packet);
+		
 	});
 
 	addProgram = (program:Program) => new Promise<boolean>(async (resolve, reject) => {
@@ -272,11 +275,12 @@ class DisplayDevice extends EventEmitter {
 
 		try {
 			this.comm.queue.push("SetBootLogoName", reject, resolver, 1000);
+			this.comm.socket.write(packet);
 		}
 		catch (e) {
 			reject(e);
 		}
-		this.comm.socket.write(packet);
+		
 	});
 
 	listFonts = () => new Promise<DeviceFont[]>(async (resolve, reject) => {
@@ -400,12 +404,11 @@ class DisplayDevice extends EventEmitter {
 
 		try {
 			this.comm.queue.push("AddFiles", reject, resolver, 10000);
+			this.comm.socket.write(packet);
 		}
 		catch (e) {
 			reject(e);
 		}
-
-		this.comm.socket.write(packet);
 	});
 
 	//TODO: Handle multiple files

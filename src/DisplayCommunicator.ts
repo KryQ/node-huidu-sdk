@@ -457,14 +457,19 @@ class DisplayCommunicator extends EventEmitter {
 				}
 			}, "##GUID");
 
-			this.socket.write(packet);
+			
 
 			//Should i define return object more precisely? 
 			const resolver = (result: {sdk:{"@_guid":string}}): void => {
 				resolve(result.sdk["@_guid"]);
 			};
-
-			this.queue.push("GetIFVersion", reject, resolver, 1000);
+			try {
+				this.queue.push("GetIFVersion", reject, resolver, 1000);
+				this.socket.write(packet);
+			}
+			catch (e) {
+				reject(ErrorCode.REQUEST_PENDING);
+			}
 		});
 
 	static decodeUdpResponse(data: Buffer): UdpPacket {
