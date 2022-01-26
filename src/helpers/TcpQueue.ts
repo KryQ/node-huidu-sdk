@@ -1,4 +1,4 @@
-import { ErrorCode } from "../utils/ReturnCodes";
+import { ErrorCode } from "../utils/ReturnCodes.js";
 class TcpQueue {
 	private _queue: {
         [key: string]: {
