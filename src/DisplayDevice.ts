@@ -250,12 +250,11 @@ class DisplayDevice extends EventEmitter {
 
 		try {
 			this.comm.queue.push("AddProgram", reject, resolver, 10000);
+			this.comm.socket.write(packet, "utf-8");
 		}
 		catch (e) {
 			reject(e);
 		}
-
-		this.comm.socket.write(packet, "utf-8");
 	});
 
 	setBootLogo = async (name:string): Promise<boolean> => new Promise<boolean>((resolve, reject) => {
