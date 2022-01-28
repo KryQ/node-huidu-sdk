@@ -2,4 +2,3 @@ node_modules
 logs/*
 assets/*
 dist
-package-lock.json
