@@ -1,15 +1,14 @@
-import { v4 as uuidv4 } from "uuid";
+
 import { ComponentInterface } from "./BaseComponent.js";
 
-class ImageComponent implements ComponentInterface {
-	x:number;
-	y:number;
-	width:number;
-	height:number;
-	alpha:number;
-	image:string;
+class ImageComponent extends ComponentInterface {
+	readonly type = "image";
 
-	constructor(x:number,y:number,width:number,height:number,alpha:number, image:string) {
+	image:string;
+	
+	constructor(x:number,y:number,width:number,height:number,alpha:number, image:string, guid?:string) {
+		super(guid);
+
 		this.x = x;
 		this.y = y;
 		this.width = width;
@@ -19,10 +18,14 @@ class ImageComponent implements ComponentInterface {
 		this.image = image;
 	}
 
+	setImage = (image:string) => {
+		this.image = image;
+	};
+
 	generate = ():object => {
 		return {
 			"@_alpha": this.alpha,
-			"@_guid": uuidv4(),
+			"@_guid": this.guid,
 			"rectangle": {
 				"@_x": this.x,
 				"@_height": this.height,
@@ -31,7 +34,7 @@ class ImageComponent implements ComponentInterface {
 			},
 			"resources": {
 				"image": {
-					"@_guid": uuidv4(),
+					"@_guid": this.guid+"Image",
 					"@_fit": "fill",
 					"file": {
 						"@_name": this.image

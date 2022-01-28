@@ -1,12 +1,9 @@
+import createGuid from "../helpers/CreateGUID.js";
 import { ComponentInterface } from "./BaseComponent.js";
 import TextComponent from "./TextComponent.js";
 
-class ParkingSpacesComponent implements ComponentInterface {
-	x:number;
-	y:number;
-	width:number;
-	height:number;
-	alpha:number;
+class ParkingSpacesComponent extends ComponentInterface {
+	readonly type = "parking_status";
 	
 	font:string;
 	text:string;
@@ -17,12 +14,8 @@ class ParkingSpacesComponent implements ComponentInterface {
 	messageComponent: TextComponent;
 	spacesComponent: TextComponent;
 
-	constructor(x:number,y:number,width:number,height:number,alpha:number, font:string, text:string, status:string, freeSpaces:number, maxSpaces:number) {
-		this.x = x;
-		this.y = y;
-		this.width = width;
-		this.height = height;
-		this.alpha = alpha;
+	constructor(x:number,y:number,width:number,height:number,alpha:number, font:string, text:string, status:string, freeSpaces:number, maxSpaces:number, guid?:string) {
+		super(guid);
 
 		this.font = font;
 		this.text = text;
@@ -30,6 +23,13 @@ class ParkingSpacesComponent implements ComponentInterface {
 		this.freeSpaces = freeSpaces;
 		this.maxSpaces = maxSpaces;
 
+		this.messageComponent = new TextComponent(x, y, this.width, this.height, 255, this.font, text, guid+"Message");
+		this.spacesComponent = new TextComponent(this.x+(this.width-10), y, 10, this.height, 0, this.font, freeSpaces.toString(), guid+"Spaces");
+
+		this.setStatus(text, status, freeSpaces, maxSpaces);
+	}
+
+	setStatus = (text:string, status:string, freeSpaces:number, maxSpaces:number) => {
 		const fontWidth = 8;
 		let freeSpacesStr = "";
 		let freeSpacesWidth = 1;
@@ -38,7 +38,6 @@ class ParkingSpacesComponent implements ComponentInterface {
 			freeSpacesStr = String(freeSpaces);
 			freeSpacesWidth = (freeSpacesStr.length*fontWidth)+freeSpacesStr.length;
 
-			this.spacesComponent = new TextComponent(this.x+(this.width-freeSpacesWidth), y, freeSpacesWidth, this.height, 255, this.font, freeSpaces.toString());
 			this.spacesComponent.setSlidingText(false);
 			this.spacesComponent.setJustify("right");
 
@@ -52,10 +51,21 @@ class ParkingSpacesComponent implements ComponentInterface {
 			else {
 				this.spacesComponent.setColor("#ff0e01");
 			}
+
+			this.messageComponent.setSize(this.x, this.y, this.width-freeSpacesWidth-1, this.height);
+			
+			this.spacesComponent.setSize(this.x+(this.width-freeSpacesWidth), this.y, freeSpacesWidth, this.height);
+			this.spacesComponent.setAlpha(255);
+			this.spacesComponent.setText(freeSpacesStr);
+			this.spacesComponent.setSlidingText(false);
+		}
+		else {
+			this.messageComponent.setSize(this.x, this.y, this.width, this.height);
+			this.spacesComponent.setAlpha(0);
 		}
 
-		this.messageComponent = new TextComponent(x, y, this.width-freeSpacesWidth-1, this.height, 255, this.font, text);
-	}
+		this.messageComponent.setText(text);
+	};
 
 	setColor = (color: string) => {
 		this.messageComponent.setColor(color);

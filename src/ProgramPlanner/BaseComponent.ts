@@ -1,13 +1,25 @@
-import { v4 as uuidv4 } from "uuid";
-
-interface ComponentInterface {
+import createGuid from "../helpers/CreateGUID.js";
+class ComponentBase {
 	x:number;
 	y:number;
 	width:number;
 	height:number;
 	alpha:number;
+	guid:string;
 
-	generate(): object;
+	constructor (guid?: string) {
+		if(typeof guid == undefined || !guid) {
+			this.guid = createGuid();
+		}
+		else 
+		{
+			this.guid = guid;
+		}
+	}
+
+	generate(): object {
+		throw new Error("METHOD_NOT_IMPLEMENTED");
+	}
 }
 
-export {ComponentInterface};
+export {ComponentBase as ComponentInterface};

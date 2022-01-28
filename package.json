@@ -23,6 +23,7 @@
     "xml": "^1.0.1"
   },
   "devDependencies": {
+    "@faker-js/faker": "^6.0.0-alpha.5",
     "@types/blessed": "^0.1.19",
     "@typescript-eslint/eslint-plugin": "^5.9.1",
     "@typescript-eslint/parser": "^5.9.1",

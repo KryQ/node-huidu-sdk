@@ -1,12 +1,10 @@
-import { v4 as uuidv4 } from "uuid";
+//import { v4 as uuidv4 } from "uuid";
+import createGuid from "../helpers/CreateGUID.js";
 import { ComponentInterface } from "./BaseComponent.js";
 
-class TextComponent implements ComponentInterface {
-	x:number;
-	y:number;
-	width:number;
-	height:number;
-	alpha:number;
+class TextComponent extends ComponentInterface {
+	readonly type = "text";
+
 	font: string;
 	text:string;
 
@@ -15,19 +13,25 @@ class TextComponent implements ComponentInterface {
 	private justify = "left";
 	private color = "#FFFFFF";
 
-	constructor(x:number, y:number, width:number, height:number, alpha:number, font: string, text:string) {
+	constructor(x:number, y:number, width:number, height:number, alpha:number, font: string, text:string, guid?:string) {
+		super(guid);
+
 		this.x = x;
 		this.y = y;
 		this.width = width;
 		this.height = height;
 		this.alpha = alpha;
+		
 		this.font = font;
 
-		this.text = text;
+		this.setText(text);
 
-		const fontWidth = 8;
-		if(text.length>=(this.width/fontWidth)-1) {
-			this.setSlidingText(true);
+		if(typeof guid == undefined || !guid) {
+			this.guid = createGuid();
+		}
+		else 
+		{
+			this.guid = guid;
 		}
 	}
 
@@ -54,10 +58,35 @@ class TextComponent implements ComponentInterface {
 		this.color = color;
 	};
 
+	setText = (text:string) => {
+		this.text = text;
+
+		const fontWidth = 9;
+		if(text.length>=(this.width/fontWidth)-1) {
+			this.setSlidingText(true);
+		}
+		else {
+			this.setSlidingText(false);
+		}
+	};
+
+	setSize = (x:number, y:number, width: number, height: number) => {
+		this.x = x;
+		this.y = y;
+		this.width = width;
+		this.height = height;
+
+		this.setText(this.text);
+	};
+
+	setAlpha = (alpha:number) => {
+		this.alpha = alpha;
+	};
+
 	generate = ():object => {
 		return {
 			"@_alpha": this.alpha,
-			"@_guid": uuidv4(),
+			"@_guid": this.guid,
 			"rectangle": {
 				"@_x": this.x,
 				"@_height": this.height,
@@ -66,7 +95,7 @@ class TextComponent implements ComponentInterface {
 			},
 			"resources": {
 				"text": {
-					"@_guid": uuidv4(),
+					"@_guid": this.guid+"Text",
 					"@_singleLine": this.singleLine,
 					"style": {
 						"@_valign": "middle",

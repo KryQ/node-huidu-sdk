@@ -2,6 +2,8 @@
 //import chalk from "chalk";
 import { Program, TextComponent, ParkingSpacesComponent } from "../index.js";
 
+import crypto from "crypto";
+
 /*
 const bless = async () => {
 	const screen = blessed.screen({
@@ -116,70 +118,23 @@ const bless = async () => {
 	screen.render();
 };*/
 
-const frame = {
-	"fields": {
-		"arrow": {
-			"type": "arrow",
-			"x": 0,
-			"y": 0,
-			"width": 20,
-			"height": 20
-		},
-		"parking_name": {
-			"type": "text",
-			"x": 20,
-			"y": -2,
-			"width": 60,
-			"font": "8x13"
-		},
-		"parking_status": {
-			"type": "parking_status",
-			"x": 20,
-			"y": 9,
-			"width": 60,
-			"font": "8x13"
-		}
-	},
-	"data": {
-		"arrow": {
-			"direction": "straight"
-		},
-		"parking_name": {
-			"text": "ul. Gdańska",
-			"color": {
-				"r": 255,
-				"g": 100,
-				"b": 10
-			}
-		},
-		"parking_status": {
-			"status": "working_msg",
-			"color": {
-				"r": 222,
-				"g": 222,
-				"b": 255
-			},
-			"message": "Niska zajętość",
-			"free_spaces": 987,
-			"max_spaces": 1223
-		}
+const optional = (must: string, opt?:string):string => {
+	if(typeof opt == undefined || !opt) {
+		return "empty";
 	}
+	else return opt;
 };
 
 
-const throws = () => {
-	console.log("WOW SUCH ");
-	throw new Error("TEST Error");
-};
 
 const main = () => {
-	try {
-		throws();
-		console.log("DONE");
-	}
-	catch (e) {
-		console.error(e);
-	}
+	const token = crypto.randomBytes(6).toString("hex");
+	console.log(token);
+
+	console.log("nope", optional("lol"));
+	console.log("nope", optional("lol", null));
+	console.log("empty", optional("lol", ""));
+	console.log("amt", optional("lol", "amt"));
 };
 
 main();

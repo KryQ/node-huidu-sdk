@@ -14,6 +14,7 @@ import VideoComponent from "../ProgramPlanner/VideoComponent.js";
 import ParkingSpacesComponent from "../ProgramPlanner/ParkingSpacesComponent.js";
 
 import readline from "readline";
+import { faker } from "@faker-js/faker";
 
 let card: DisplayDevice = null;
 
@@ -67,7 +68,7 @@ const selectDevice = async (
 
 async function main() {
   const devicesList = await DisplayCommunicator.searchForDevices(
-    "192.168.1.255",
+    "192.168.10.255",
     10001,
     2000
   );
@@ -86,27 +87,29 @@ async function main() {
     }
 
     //This reconnection is going to blow in somebody face. Maybe somebody will find better option
-    // card.on("connectionStateChange", async (state) => {
-    //   logger.debug(`Connection state: ${state}`);
+    /*card.on("connectionStateChange", async (state) => {
+      logger.debug(`Connection state: ${state}`);
 
-    //   if (state === ConnectionState.DISCONNECTED) {
-    //     const handle = setInterval(async () => {
-    //       logger.debug("start init");
-    //       try {
-    //         if (await card.init()) {
-    //           clearInterval(handle);
-    //         }
-    //       } catch (e) {
-    //         logger.error(e);
-    //       }
-    //       logger.debug("stop init");
-    //     }, 1000);
-    //   }
+      if (state === ConnectionState.DISCONNECTED) {
+        const handle = setInterval(async () => {
+          logger.debug("start init");
+          try {
+            if (await card.init()) {
+              clearInterval(handle);
+            }
+          } catch (e) {
+            logger.error(e);
+          }
+          logger.debug("stop init");
+        }, 1000);
+      }
 
-    //   if (state === ConnectionState.LOST_COMMUNICATION) {
-    //     card.deinit();
-    //   }
-    // });
+      if (state === ConnectionState.LOST_COMMUNICATION) {
+        card.deinit();
+      }
+    });*/
+
+    let lastSentProgram:Program;
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
@@ -172,12 +175,12 @@ async function main() {
             0,
             0,
             192,
-            31,
+            32,
             255,
             "test_video.mp4"
           );
 
-          program.addComponent(videoComponent);
+          program.addComponent("video", videoComponent);
 
           try {
             await card.addProgram(program);
@@ -191,39 +194,40 @@ async function main() {
           const parkingLogoComponent = new ImageComponent(
             0,
             0,
-            16,
-            16,
+            32,
+            32,
             255,
-            "logo.png"
+            "logo.png",
           );
           const parkingNameComponent = new TextComponent(
-            16,
+            33,
             0,
-            48,
-            8,
+            192-33,
+            16,
             255,
-            "Arial",
-            "ul. Wojska Polskiego"
+            "Fixed_9x18B",
+            faker.address.streetAddress(false),
           );
           const parkingSpacesComponent = new ParkingSpacesComponent(
+            33,
             16,
-            8,
-            48,
-            8,
+            192-33,
+            16,
             255,
-            "Arial",
+            "Fixed_9x18B",
             "miejsc",
             "working",
             10,
             20
           );
 
-          program.addComponent(parkingLogoComponent);
-          program.addComponent(parkingNameComponent);
-          program.addComponent(parkingSpacesComponent);
+          program.addComponent("logo", parkingLogoComponent);
+          program.addComponent("name", parkingNameComponent);
+          program.addComponent("parking", parkingSpacesComponent);
 
           try {
             await card.addProgram(program);
+            lastSentProgram = program;
           } catch (e) {
             logger.error(e.toString());
           }
@@ -290,6 +294,16 @@ async function main() {
             } catch (e) {
               console.error(e);
             }
+          }
+          break;
+          case 15:
+          try {
+            (lastSentProgram.components["name"] as TextComponent).setText(faker.address.streetAddress(false));
+            (lastSentProgram.components["parking"] as ParkingSpacesComponent).setStatus(faker.lorem.sentence(3), "closed", 10,20);
+            await card.updateProgram(lastSentProgram)
+            .catch(console.error);
+          } catch (e) {
+            console.log("Error while fetching data");
           }
           break;
         default: {
