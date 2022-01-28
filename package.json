@@ -14,15 +14,13 @@
   "license": "BSD 3-Clause License",
   "dependencies": {
     "@types/node": "^16.11.10",
-    "@types/uuid": "^8.3.3",
-    "chalk": "^5.0.0",
     "fast-xml-parser": "^4.0.1",
     "logging": "^3.3.0",
-    "uuid": "^8.3.2",
     "winston": "^3.3.3",
     "xml": "^1.0.1"
   },
   "devDependencies": {
+    "chalk": "^5.0.0",
     "@faker-js/faker": "^6.0.0-alpha.5",
     "@types/blessed": "^0.1.19",
     "@typescript-eslint/eslint-plugin": "^5.9.1",

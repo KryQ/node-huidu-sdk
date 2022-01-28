@@ -1,19 +1,12 @@
-import createGuid from "../helpers/CreateGUID.js";
-import { ComponentInterface } from "./BaseComponent.js";
+import BaseComponent from "./BaseComponent.js";
 
-class VideoComponent extends ComponentInterface {
+class VideoComponent extends BaseComponent {
 	readonly type = "video";
 
 	video:string;
 
 	constructor(x:number,y:number,width:number,height:number,alpha:number, video:string, guid?:string) {
-		super(guid);
-
-		this.x = x;
-		this.y = y;
-		this.width = width;
-		this.height = height;
-		this.alpha = alpha;
+		super(x,y,width,height,alpha, guid);
 
 		this.video = video;
 	}

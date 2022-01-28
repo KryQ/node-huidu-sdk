@@ -1,13 +1,21 @@
 import createGuid from "../helpers/CreateGUID.js";
-class ComponentBase {
+
+abstract class BaseComponent {
 	x:number;
 	y:number;
 	width:number;
 	height:number;
 	alpha:number;
+	
 	guid:string;
 
-	constructor (guid?: string) {
+	constructor (x:number, y:number, width:number, height:number, alpha:number, guid?: string) {
+		this.x = x;
+		this.y = y;
+		this.width = width;
+		this.height = height;
+		this.alpha = alpha;
+
 		if(typeof guid == undefined || !guid) {
 			this.guid = createGuid();
 		}
@@ -17,9 +25,7 @@ class ComponentBase {
 		}
 	}
 
-	generate(): object {
-		throw new Error("METHOD_NOT_IMPLEMENTED");
-	}
+	abstract generate(): object
 }
 
-export {ComponentBase as ComponentInterface};
+export default BaseComponent;

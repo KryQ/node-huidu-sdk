@@ -1,8 +1,6 @@
-//import { v4 as uuidv4 } from "uuid";
-import createGuid from "../helpers/CreateGUID.js";
-import { ComponentInterface } from "./BaseComponent.js";
+import BaseComponent from "./BaseComponent.js";
 
-class TextComponent extends ComponentInterface {
+class TextComponent extends BaseComponent {
 	readonly type = "text";
 
 	font: string;
@@ -14,25 +12,11 @@ class TextComponent extends ComponentInterface {
 	private color = "#FFFFFF";
 
 	constructor(x:number, y:number, width:number, height:number, alpha:number, font: string, text:string, guid?:string) {
-		super(guid);
+		super(x,y,width,height,alpha, guid);
 
-		this.x = x;
-		this.y = y;
-		this.width = width;
-		this.height = height;
-		this.alpha = alpha;
-		
 		this.font = font;
 
 		this.setText(text);
-
-		if(typeof guid == undefined || !guid) {
-			this.guid = createGuid();
-		}
-		else 
-		{
-			this.guid = guid;
-		}
 	}
 
 	setSingleLine = (state:boolean) => {

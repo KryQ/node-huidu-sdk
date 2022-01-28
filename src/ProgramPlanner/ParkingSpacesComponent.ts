@@ -1,8 +1,7 @@
-import createGuid from "../helpers/CreateGUID.js";
-import { ComponentInterface } from "./BaseComponent.js";
+import BaseComponent from "./BaseComponent.js";
 import TextComponent from "./TextComponent.js";
 
-class ParkingSpacesComponent extends ComponentInterface {
+class ParkingSpacesComponent extends BaseComponent {
 	readonly type = "parking_status";
 	
 	font:string;
@@ -14,8 +13,20 @@ class ParkingSpacesComponent extends ComponentInterface {
 	messageComponent: TextComponent;
 	spacesComponent: TextComponent;
 
-	constructor(x:number,y:number,width:number,height:number,alpha:number, font:string, text:string, status:string, freeSpaces:number, maxSpaces:number, guid?:string) {
-		super(guid);
+	constructor(
+		x:number,
+		y:number,
+		width:number,
+		height:number,
+		alpha:number, 
+		font:string, 
+		text:string, 
+		status:string, 
+		freeSpaces:number, 
+		maxSpaces:number, 
+		guid?:string
+	) {
+		super(x,y,width,height,alpha, guid);
 
 		this.font = font;
 		this.text = text;

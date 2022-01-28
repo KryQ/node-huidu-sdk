@@ -1,19 +1,12 @@
+import BaseComponent from "./BaseComponent.js";
 
-import { ComponentInterface } from "./BaseComponent.js";
-
-class ImageComponent extends ComponentInterface {
+class ImageComponent extends BaseComponent {
 	readonly type = "image";
 
 	image:string;
 	
 	constructor(x:number,y:number,width:number,height:number,alpha:number, image:string, guid?:string) {
-		super(guid);
-
-		this.x = x;
-		this.y = y;
-		this.width = width;
-		this.height = height;
-		this.alpha = alpha;
+		super(x,y,width,height,alpha, guid);
 
 		this.image = image;
 	}

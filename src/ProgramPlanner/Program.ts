@@ -1,9 +1,9 @@
-import { v4 as uuidv4 } from "uuid";
-
-import {ComponentInterface} from "./BaseComponent.js";
+import createGuid from "../helpers/CreateGUID.js";
+import { ErrorCode } from "../utils/ReturnCodes.js";
+import BaseComponent from "./BaseComponent.js";
 
 interface ComponentsArray {
-    [key: string]: ComponentInterface;
+    [key: string]: BaseComponent;
 }
 
 class Program {
@@ -13,7 +13,7 @@ class Program {
 
 	constructor() {
 		this.timestamp = Math.round(Date.now() / 1000);
-		this.guid = uuidv4();
+		this.guid = createGuid();
 	}
 
 	generate = () => {
@@ -37,16 +37,17 @@ class Program {
 		return {
 			"@_guid": this.guid,
 			"@_type": "normal",
-			// "playControl": {
-			// 	"@_count": 1,
-			// 	"@_disabled": false,
-			// },
 			"area": createList()
 		};
 	};
 
-	//TODO: Check for key uniqnes
-	addComponent = (key:string, component:ComponentInterface):boolean => {
+	addComponent = (key:string, component:BaseComponent): boolean => {
+		if(!key) 
+			throw new Error(ErrorCode.INVALID_COMPONENT_KEY);
+
+		if(this.components[key]) 
+			throw new Error(ErrorCode.COMPONENT_KEY_EXISTS);
+
 		this.components[key] = component;
 		return true;
 	};
