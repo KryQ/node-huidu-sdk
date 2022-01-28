@@ -1,6 +1,7 @@
 import createGuid from "../helpers/CreateGUID.js";
 
 abstract class BaseComponent {
+	abstract type: string;
 	x:number;
 	y:number;
 	width:number;
