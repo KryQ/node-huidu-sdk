@@ -75,6 +75,7 @@ class DisplayCommunicator extends EventEmitter {
 		this.queue = new TcpQueue();
 
 		this.socket = new net.Socket();
+		this.socket.on("connect", this.init);
 		this.socket.on("data", this.responseListener);
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		this.socket.on("close", (error) => {
@@ -87,6 +88,7 @@ class DisplayCommunicator extends EventEmitter {
 	}
 
 	changeConnectionState = (state:ConnectionState) => {
+		logger.debug("State change: "+state);
 		if(state!==this.connectionState) {
 			this.connectionState = state;
 			this.emit("connectionStateChange", state);
@@ -94,14 +96,14 @@ class DisplayCommunicator extends EventEmitter {
 	};
 
 	connect = async ():Promise<boolean> => new Promise((resolve, reject) => {
-		this.changeConnectionState(ConnectionState.SETTING_UP);
-
-		if(this.connectionState===ConnectionState.CONNECTED) {
-			reject(new Error(ErrorCode.ALREADY_CONNECTED));
+		if(this.connectionState===ConnectionState.CONNECTED || this.connectionState===ConnectionState.SETTING_UP) {
+			reject(new Error(ErrorCode.ALREADY_CONNECTING));
 			return;
 		}
+
+		this.changeConnectionState(ConnectionState.SETTING_UP);
 		
-		this.socket.connect(this.port, this.address, async () => this.init(resolve, reject));
+		this.socket.connect(this.port, this.address);
 	});
 
 	disconnect = () => {
@@ -109,11 +111,10 @@ class DisplayCommunicator extends EventEmitter {
 	};
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	init = async (resolve:any, reject:any) => {
+	init = async ():Promise<boolean> => {
 		const [serviceRequestError, serviceRequest] = await AsyncTask(this.askServiceVersion());
 		if(serviceRequestError) {
-			reject(new Error(ErrorCode.GENERIC));
-			return;
+			throw new Error(ErrorCode.GENERIC);
 		}
 		logger.info(`TCP ver: ${serviceRequest}`);
 
@@ -122,8 +123,7 @@ class DisplayCommunicator extends EventEmitter {
 		const [guidRequestError, guidRequest] = await AsyncTask(this.askGuid());
 		
 		if(guidRequestError) {
-			reject(new Error(ErrorCode.GENERIC));
-			return;
+			throw new Error(ErrorCode.GENERIC);
 		}
 		this.guid = guidRequest;
 
@@ -132,7 +132,7 @@ class DisplayCommunicator extends EventEmitter {
 		this.changeConnectionState(ConnectionState.CONNECTED);
 		this.resetCommWatchdog(5);
 
-		resolve(true);
+		return true;
 	};
 
 	deinit = () => {
@@ -360,9 +360,9 @@ class DisplayCommunicator extends EventEmitter {
 		}
 	});
 
-	socketWritePromise = (buff: Buffer): Promise<boolean> =>
+	socketWritePromise = (buff: Buffer, ignoreState=false): Promise<boolean> =>
 		new Promise((resolve, reject) => {
-			if(this.connectionState!==ConnectionState.CONNECTED) {
+			if(!ignoreState && this.connectionState!==ConnectionState.CONNECTED) {
 				reject(new Error(ErrorCode.NOT_CONNECTED));
 				return;
 			}
@@ -425,15 +425,11 @@ class DisplayCommunicator extends EventEmitter {
 
 			this.emit("uploadProgress", Math.round(((s + packetSize) / fileSize) * 100));
 
-			await this.socketWritePromise(buff);
+			await this.socketWritePromise(buff, true);
 		}
 	};
 
 	endFileTransfer = () => new Promise((resolve, reject) => {
-		// if(this.connectionState!==ConnectionState.CONNECTED) {
-		// 	reject(new Error(ErrorCode.NOT_CONNECTED));
-		// }
-
 		const buff = Buffer.alloc(4, 0);
 
 		buff[0] = (4 & 0xff);
@@ -443,7 +439,7 @@ class DisplayCommunicator extends EventEmitter {
 		buff[3] = (CmdType.kFileEndAsk >> 8) & 0xff;
 
 		this.queue.push("kFileEndAsk", reject, resolve, 10000);
-		this.socket.write(buff);
+		this.socketWritePromise(buff, true);
 	});
 
 	private askServiceVersion = (): Promise<number> =>
@@ -473,9 +469,6 @@ class DisplayCommunicator extends EventEmitter {
 				}
 			}, "##GUID");
 
-			
-
-			//Should i define return object more precisely? 
 			const resolver = (result: {sdk:{"@_guid":string}}): void => {
 				resolve(result.sdk["@_guid"]);
 			};

@@ -299,7 +299,16 @@ async function main() {
           console.log("Error while fetching data");
         }
         break;
-      case 99:
+        case 98:
+          try {
+            await card.reboot();
+            console.log("Restarted");
+          } catch (e) {
+            console.log("Error while fetching data");
+          }
+          break;
+
+        case 99:
         {
           try {
             await card.deinit();

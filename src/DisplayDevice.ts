@@ -38,21 +38,22 @@ class DisplayDevice extends EventEmitter {
 		}
 
 		try {
-			await this.comm.connect();
-			this.comm.on("connectionStateChange", (state:ConnectionState) => {
-				if(state===ConnectionState.LOST_COMMUNICATION) {
+			this.comm.on("connectionStateChange", async (state:ConnectionState) => {
+				if(state===ConnectionState.CONNECTED) {
+					this.name = await this.getName();
+					resolve(true);
+				}
+				else if(state===ConnectionState.LOST_COMMUNICATION) {
 					this.deinit();
 				}
 			});
-			
-			this.name = await this.getName();
+
+			await this.comm.connect();
 		}
 		catch (e) {
 			logger.error("dd error 1");
 			reject(e);
-		}
-		
-		resolve(true);
+		}		
 	});
 
 	deinit = async(): Promise<boolean> => {
@@ -498,7 +499,7 @@ class DisplayDevice extends EventEmitter {
 		try {
 			this.comm.changeConnectionState(ConnectionState.BUSY);
 			this.comm.queue.push("AddFiles", reject, resolver, 10000);
-			await this.comm.socketWritePromise(packet);
+			await this.comm.socketWritePromise(packet, true);
 		}
 		catch (e) {
 			this.comm.changeConnectionState(ConnectionState.CONNECTED);
@@ -555,6 +556,33 @@ class DisplayDevice extends EventEmitter {
 			reject(e);
 			return;
 		}
+	});
+
+	reboot = (delay=10) => new Promise<boolean>(async (resolve, reject) => {
+		if(this.comm.connectionState === ConnectionState.BUSY) {
+			reject(ErrorCode.BUSY);
+			return;
+		}
+
+		const payload = {
+			"@_method": "Reboot",
+			"@_delay": delay,
+		};
+
+		const resolver = () => {
+			resolve(true);
+		};
+
+		const packet = this.comm.constructSdkTckPacket(payload);
+
+		try {
+			this.comm.queue.push("Reboot", reject, resolver, 10000);
+			await this.comm.socketWritePromise(packet);
+		}
+		catch (e) {
+			reject(e);
+		}
+		
 	});
 }
 
