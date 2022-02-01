@@ -6,5 +6,6 @@ import ImageComponent from "./ProgramPlanner/ImageComponent.js";
 import ParkingSpacesComponent from "./ProgramPlanner/ParkingSpacesComponent.js";
 import TextComponent from "./ProgramPlanner/TextComponent.js";
 import { DeviceFile } from "./utils/Types.js";
+import { ConnectionState } from "./DisplayCommunicator.js";
 
-export { DisplayCommunicator, DisplayDevice, Program, BaseComponent, ImageComponent, ParkingSpacesComponent, TextComponent, DeviceFile };
+export { DisplayCommunicator, DisplayDevice, Program, BaseComponent, ImageComponent, ParkingSpacesComponent, TextComponent, DeviceFile, ConnectionState };
