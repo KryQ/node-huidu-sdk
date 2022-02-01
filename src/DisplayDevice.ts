@@ -37,10 +37,14 @@ class DisplayDevice extends EventEmitter {
 			reject(ErrorCode.ALREADY_CONNECTING);
 		}
 
-		logger.debug("dd init 1");
 		try {
 			await this.comm.connect();
-			logger.debug("dd init 2");
+			this.comm.on("connectionStateChange", (state:ConnectionState) => {
+				if(state===ConnectionState.LOST_COMMUNICATION) {
+					this.deinit();
+				}
+			});
+			
 			this.name = await this.getName();
 		}
 		catch (e) {
@@ -48,7 +52,6 @@ class DisplayDevice extends EventEmitter {
 			reject(e);
 		}
 		
-		logger.debug("dd init 3");
 		resolve(true);
 	});
 
@@ -283,7 +286,7 @@ class DisplayDevice extends EventEmitter {
 
 	addProgram = (program:Program) => new Promise<boolean>(async (resolve, reject) => {
 		if(this.comm.connectionState === ConnectionState.BUSY) {
-			reject(ErrorCode.BUSY);
+			reject(new Error(ErrorCode.BUSY));
 			return;
 		}
 
@@ -298,18 +301,14 @@ class DisplayDevice extends EventEmitter {
 
 		const packet = this.comm.constructSdkTckPacket(payload);
 
-		try {
-			this.comm.queue.push("AddProgram", reject, resolver, 500);
-			await this.comm.socketWritePromise(packet);
-		}
-		catch (e) {
-			reject(e);
-		}
+		this.comm.queue.push("AddProgram", reject, resolver, 500);
+		await this.comm.socketWritePromise(packet)
+		.catch(() => reject(new Error(ErrorCode.GENERIC)));
 	});
 
 	updateProgram = (program:Program) => new Promise<boolean>(async (resolve, reject) => {
 		if(this.comm.connectionState === ConnectionState.BUSY) {
-			reject(ErrorCode.BUSY);
+			reject(new Error(ErrorCode.BUSY));
 			return;
 		}
 
@@ -324,13 +323,9 @@ class DisplayDevice extends EventEmitter {
 
 		const packet = this.comm.constructSdkTckPacket(payload);
 
-		try {
-			this.comm.queue.push("UpdateProgram", reject, resolver, 500);
-			await this.comm.socketWritePromise(packet);
-		}
-		catch (e) {
-			reject(e);
-		}
+		this.comm.queue.push("UpdateProgram", reject, resolver, 500);
+		await this.comm.socketWritePromise(packet)
+		.catch(() => reject(new Error(ErrorCode.GENERIC)));
 	});
 
 	setBootLogo = async (name:string): Promise<boolean> => new Promise<boolean>(async (resolve, reject) => {

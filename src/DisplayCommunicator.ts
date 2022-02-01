@@ -5,7 +5,8 @@ import EventEmitter from "events";
 
 import { CmdType, SdkErrorCode } from "./SdkConstants.js";
 import { TcpQueue } from "./helpers/TcpQueue.js";
-import {ErrorCode, SuccessCode} from "./utils/ReturnCodes.js";
+import { ErrorCode, SuccessCode } from "./utils/ReturnCodes.js";
+import { AsyncTask } from "./helpers/AsyncTask.js";
 
 import logger from "./utils/logger.js";
 
@@ -18,7 +19,7 @@ type TcpResponsePacket = {
 }
 
 type CandidateDevice = {
-	name: string,
+	model: string,
 	address: string,
 	port: number
 }
@@ -40,18 +41,23 @@ enum ConnectionState {
 }
 
 class DisplayCommunicator extends EventEmitter {
+	readonly TCP_VERSION: number = 0x1000007;
+	static readonly UDP_VERSION: number = 0x1000007;
+	readonly HEARTBEAT_INTERVAL_TRESHOLD = 2; //in minutes
+
 	address: string;
 	port: number;
 
-	readonly TCP_VERSION: number = 0x1000007;
 	tcpVersion: number;
 	guid: string;
 	socket: net.Socket;
 	connectionState: ConnectionState;
+	queue: TcpQueue;
+
+	//Health check
 	lastHeartbeat: Date;
 	heartbeatTimeoutHandle: ReturnType<typeof setInterval> = null;
-	heartbeatCheckInterval = 2; //in minutes
-	queue: TcpQueue;
+	consecutiveErrors = 0;
 
 	private maxPacketSize = 8000; //bytes (if your network doesn't handle jumbo frames change it to 1400)
 
@@ -91,7 +97,7 @@ class DisplayCommunicator extends EventEmitter {
 		this.changeConnectionState(ConnectionState.SETTING_UP);
 
 		if(this.connectionState===ConnectionState.CONNECTED) {
-			reject(ErrorCode.ALREADY_CONNECTED);
+			reject(new Error(ErrorCode.ALREADY_CONNECTED));
 			return;
 		}
 		
@@ -102,30 +108,31 @@ class DisplayCommunicator extends EventEmitter {
 		this.socket.destroy();
 	};
 
-	init = async (resolve:(ret:boolean) => void, reject:(ret:string) => void) => {
-		try {
-			logger.debug("dc conn 1");
-			const serviceRequest = await this.askServiceVersion();
-			logger.info(`TCP ver: ${serviceRequest}`);
-
-			this.tcpVersion = serviceRequest;
-			this.guid = await this.askGuid();
-
-			logger.info(`GUID: ${this.guid}`);
-
-			this.heartbeatTimeoutHandle = setTimeout(() => {
-				this.changeConnectionState(ConnectionState.LOST_COMMUNICATION);
-			}, (this.heartbeatCheckInterval+2) * 60 * 1000);
-
-			this.changeConnectionState(ConnectionState.CONNECTED);
-			resolve(true);
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	init = async (resolve:any, reject:any) => {
+		const [serviceRequestError, serviceRequest] = await AsyncTask(this.askServiceVersion());
+		if(serviceRequestError) {
+			reject(new Error(ErrorCode.GENERIC));
 			return;
 		}
-		catch (e) {
-			this.changeConnectionState(ConnectionState.ERROR);
-				
-			reject(e);
+		logger.info(`TCP ver: ${serviceRequest}`);
+
+		this.tcpVersion = serviceRequest;
+		
+		const [guidRequestError, guidRequest] = await AsyncTask(this.askGuid());
+		
+		if(guidRequestError) {
+			reject(new Error(ErrorCode.GENERIC));
+			return;
 		}
+		this.guid = guidRequest;
+
+		logger.info(`GUID: ${this.guid}`);
+
+		this.changeConnectionState(ConnectionState.CONNECTED);
+		this.resetCommWatchdog(5);
+
+		resolve(true);
 	};
 
 	deinit = () => {
@@ -137,6 +144,8 @@ class DisplayCommunicator extends EventEmitter {
 	};
 
 	responseListener = (data: Buffer) => {
+		this.resetCommWatchdog();
+
 		if (this.receivingPacketLength > this.receivedBytes) {
 			logger.info(`Data added ${data.length} `);
 
@@ -247,14 +256,7 @@ class DisplayCommunicator extends EventEmitter {
 		}
 			break;
 		case CmdType.kTcpHeartbeatAnswer: {
-			this.lastHeartbeat = new Date();
-			if (this.heartbeatTimeoutHandle !== null) {
-				clearTimeout(this.heartbeatTimeoutHandle);
-
-				this.heartbeatTimeoutHandle = setTimeout(() => {
-					this.changeConnectionState(ConnectionState.LOST_COMMUNICATION);
-				}, this.heartbeatCheckInterval * 60 * 1000);
-			}
+			this.resetCommWatchdog();
 
 			const heartbeatAsk: Buffer = Buffer.alloc(4);
 
@@ -270,6 +272,15 @@ class DisplayCommunicator extends EventEmitter {
 			logger.error({ message: "Unknown error", cmd: tcpResponse.cmd.toString(16) });
 		}
 		}
+	};
+
+	resetCommWatchdog = (interval: number = this.HEARTBEAT_INTERVAL_TRESHOLD) => {
+		if(this.heartbeatTimeoutHandle) clearInterval(this.heartbeatTimeoutHandle);
+
+		this.lastHeartbeat = new Date();
+		this.heartbeatTimeoutHandle = setTimeout(() => {
+			this.changeConnectionState(ConnectionState.LOST_COMMUNICATION);
+		}, interval * 60 * 1000);
 	};
 
 	constructSdkTckPacket = (data: object, guid?: string): Buffer => {
@@ -326,10 +337,10 @@ class DisplayCommunicator extends EventEmitter {
 	//TODO: Change return type from any to something more suitable
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	sdkCmdGet = (cmd: string, timeout = 1000): Promise<any> => new Promise<any>((resolve, reject) => {
-		// if(this.connectionState!==ConnectionState.CONNECTED) {
-		// 	reject(new Error(ErrorCode.NOT_CONNECTED);
-		// 	return;
-		// }
+		if(this.connectionState!==ConnectionState.CONNECTED) {
+			reject(new Error(ErrorCode.NOT_CONNECTED));
+			return;
+		}
 
 		const packet = this.constructSdkTckPacket({
 			"@_method": cmd
@@ -351,6 +362,11 @@ class DisplayCommunicator extends EventEmitter {
 
 	socketWritePromise = (buff: Buffer): Promise<boolean> =>
 		new Promise((resolve, reject) => {
+			if(this.connectionState!==ConnectionState.CONNECTED) {
+				reject(new Error(ErrorCode.NOT_CONNECTED));
+				return;
+			}
+
 			this.socket.write(buff, (err => {
 				if (err) reject(err);
 				else resolve(true);
@@ -482,17 +498,15 @@ class DisplayCommunicator extends EventEmitter {
 		return ({ version: version, header: header, payload: payload, changeNumber: changeNumber });
 	}
 
-	static searchForDevices(network: string, port: number, timeout = 10000): Promise<Array<CandidateDevice>> {
-		return new Promise((resolve, reject) => {
-			const _LOCAL_UDP_VERSION = 0x1000007;
-
+	static searchForDevices = (network: string, port: number, timeout = 10000): Promise<Array<CandidateDevice>> =>
+		new Promise((resolve, reject) => {
 			const devices: Array<CandidateDevice> = [];
 
 			const message = Buffer.from([
-				_LOCAL_UDP_VERSION & 0xff,
-				(_LOCAL_UDP_VERSION >> 8) & 0xff,
-				(_LOCAL_UDP_VERSION >> 16) & 0xff,
-				(_LOCAL_UDP_VERSION >> 24) & 0xff,
+				this.UDP_VERSION & 0xff,
+				(this.UDP_VERSION >> 8) & 0xff,
+				(this.UDP_VERSION >> 16) & 0xff,
+				(this.UDP_VERSION >> 24) & 0xff,
 				CmdType.kSearchDeviceAsk & 0xff,
 				(CmdType.kSearchDeviceAsk >> 8) & 0xff,
 			]);
@@ -523,11 +537,13 @@ class DisplayCommunicator extends EventEmitter {
 				const response = DisplayCommunicator.decodeUdpResponse(rawResponse);
 
 				if (response.header === CmdType.kSearchDeviceAnswer) {
-					devices.push({ name: response.payload, address: remote.address, port: remote.port });
+					const uniqueCheck = devices.findIndex(device => device.model === response.payload);
+					if(uniqueCheck>=0) return;
+
+					devices.push({ model: response.payload, address: remote.address, port: remote.port });
 				}
 			});
 		});
-	}
 }
 
 export { DisplayCommunicator, CandidateDevice, ConnectionState };

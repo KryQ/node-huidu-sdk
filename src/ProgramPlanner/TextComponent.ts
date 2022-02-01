@@ -98,7 +98,7 @@ class TextComponent extends BaseComponent {
 					"effect": {
 						"@_in": this.effectIn,
 						"@_out": 0,
-						"@_inSpeed": 5,
+						"@_inSpeed": 4,
 						"@_outSpeed": 0,
 						"@_duration": 10,
 					}

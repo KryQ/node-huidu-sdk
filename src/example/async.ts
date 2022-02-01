@@ -118,23 +118,28 @@ const bless = async () => {
 	screen.render();
 };*/
 
-const optional = (must: string, opt?:string):string => {
-	if(typeof opt == undefined || !opt) {
-		return "empty";
-	}
-	else return opt;
+const throwing = async ():Promise<string> => {
+	throw new Error("gupa");
+	return "lol";
 };
 
+const throwingPromise = async ():Promise<string> => new Promise((resolve, reject) => {
+	reject(new Error("gupa"));
+	return "lol";
+});
 
+const main = async () => {
+	const th = throwing();
+	th.catch(e => {
+		console.error("jebany złapał: ", e);
+	});
 
-const main = () => {
-	const token = crypto.randomBytes(6).toString("hex");
-	console.log(token);
-
-	console.log("nope", optional("lol"));
-	console.log("nope", optional("lol", null));
-	console.log("empty", optional("lol", ""));
-	console.log("amt", optional("lol", "amt"));
+	try {
+		const thPromise = throwingPromise();
+	}
+	catch (e) {
+		console.error("jebany złapał 2: ", e);
+	}
 };
 
 main();

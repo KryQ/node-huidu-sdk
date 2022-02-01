@@ -13,14 +13,16 @@ class TcpQueue {
 
 		if (entry) {
 			reject(ErrorCode.REQUEST_PENDING);
+			return;
 		}
 		else {
-			const timeout_handle = setTimeout(() => {
+			const timeoutHandle = setTimeout(() => {
 				this.read(cmd);
-				reject(`timeout: ${cmd}`);
+				reject(new Error(ErrorCode.RESPONSE_TIMEOUT));
+				return;
 			}, timeout);
 
-			Object.assign(this._queue, { [cmd]: { reject: reject, resolve: resolve, timeout: timeout_handle } });
+			Object.assign(this._queue, { [cmd]: { reject: reject, resolve: resolve, timeout: timeoutHandle } });
 		}
 	};
 

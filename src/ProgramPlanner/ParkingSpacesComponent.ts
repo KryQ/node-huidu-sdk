@@ -40,12 +40,17 @@ class ParkingSpacesComponent extends BaseComponent {
 		this.setStatus(text, status, freeSpaces, maxSpaces);
 	}
 
-	setStatus = (text:string, status:string, freeSpaces:number, maxSpaces:number) => {
+	setStatus = (text?:string, _status?:string, _freeSpaces?:number, _maxSpaces?:number) => {
 		const fontWidth = 8;
 		let freeSpacesStr = "";
 		let freeSpacesWidth = 1;
 
+		const status = _status? _status : this.status;
+
 		if(status !== "closed") {
+			const freeSpaces = _freeSpaces ? _freeSpaces : this.freeSpaces;
+			const maxSpaces = _maxSpaces ? _maxSpaces : this.freeSpaces;
+
 			freeSpacesStr = String(freeSpaces);
 			freeSpacesWidth = (freeSpacesStr.length*fontWidth)+freeSpacesStr.length;
 
@@ -75,7 +80,7 @@ class ParkingSpacesComponent extends BaseComponent {
 			this.spacesComponent.setAlpha(0);
 		}
 
-		this.messageComponent.setText(text);
+		this.messageComponent.setText(text ? text : this.text);
 	};
 
 	setColor = (color: string) => {
