@@ -74,6 +74,8 @@ async function main() {
     2000
   );
 
+  console.log(devicesList);
+
   if (!devicesList.length) {
     console.error("No device found!");
     return;

@@ -17,6 +17,7 @@ class DisplayDevice extends EventEmitter {
 	name: string;
 	model: string;
 	private comm: DisplayCommunicator;
+	address: string ;
 
 	constructor(address: string, port: number, model: string = null) {
 		super();
@@ -24,41 +25,31 @@ class DisplayDevice extends EventEmitter {
 		this.model = model;
 
 		this.comm = new DisplayCommunicator(address, port);
+		this.address = this.comm.address;
 		this.comm.on("uploadProgress", progress => this.emit("uploadProgress", progress));
-		this.comm.on("connectionStateChange", state => this.emit("connectionStateChange", state));
+		this.comm.on("connectionStateChange", async state => {
+			switch (state) {
+				case ConnectionState.CONNECTED: this.name = await this.getName();
+			}
+			
+			this.emit("connectionStateChange", state);
+		});
 	}
 
-	/**
-	 * @returns Promise boolean - true if connected
-	 * @throws string error
-	 */
-	init = async (): Promise<boolean> => new Promise(async (resolve, reject) => {
+	init = (): void => {
 		if(this.comm.connectionState===ConnectionState.SETTING_UP || this.comm.connectionState===ConnectionState.CONNECTED) {
-			reject(ErrorCode.ALREADY_CONNECTING);
+			throw new Error(ErrorCode.ALREADY_CONNECTING);
 		}
 
-		try {
-			this.comm.on("connectionStateChange", async (state:ConnectionState) => {
-				if(state===ConnectionState.CONNECTED) {
-					this.name = await this.getName();
-					resolve(true);
-				}
-				else if(state===ConnectionState.LOST_COMMUNICATION) {
-					this.deinit();
-				}
-			});
+		this.comm.connect();	
+	};
 
-			await this.comm.connect();
+	deinit = (): void => {
+		if(this.comm.connectionState===ConnectionState.DISCONNECTED) {
+			throw new Error(ErrorCode.ALREADY_DISCONNECTED);
 		}
-		catch (e) {
-			logger.error("dd error 1");
-			reject(e);
-		}		
-	});
 
-	deinit = async(): Promise<boolean> => {
 		this.comm.disconnect();
-		return true;
 	};
 
 	getName = async (): Promise<string> => {
@@ -399,7 +390,6 @@ class DisplayDevice extends EventEmitter {
 	listFiles = async (): Promise<DeviceFile[]> => {
 		if(this.comm.connectionState === ConnectionState.BUSY) {
 			throw new Error(ErrorCode.BUSY);
-			return;
 		}
 
 		try {

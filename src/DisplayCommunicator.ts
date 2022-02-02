@@ -28,7 +28,7 @@ type UdpPacket = {
 	version: number,
 	header: number,
 	payload: string,
-	changeNumber: number
+	serialNumber: string
 }
 
 enum ConnectionState {
@@ -48,8 +48,8 @@ class DisplayCommunicator extends EventEmitter {
 	address: string;
 	port: number;
 
-	tcpVersion: number;
-	guid: string;
+	private tcpVersion: number;
+	private guid: string;
 	socket: net.Socket;
 	connectionState: ConnectionState;
 	queue: TcpQueue;
@@ -70,48 +70,52 @@ class DisplayCommunicator extends EventEmitter {
 
 		this.address = address;
 		this.port = port;
+
 		this.lastHeartbeat = new Date();
-
 		this.queue = new TcpQueue();
-
 		this.socket = new net.Socket();
-		this.socket.on("connect", this.init);
-		this.socket.on("data", this.responseListener);
+
+		this.setupSocketEvents(this.socket);
+	}
+
+	setupSocketEvents = (socket:net.Socket):void => {
+		socket.on("data", this.responseListener);
+
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		this.socket.on("close", (error) => {
+		socket.on("close", (error) => {
 			this.changeConnectionState(ConnectionState.DISCONNECTED);
 			this.deinit();
 		});
-		this.socket.on("error", error => {
+		socket.on("error", error => {
 			logger.error(error);
 		});
-	}
+
+		socket.on("connect", this.init);
+	};
 
 	changeConnectionState = (state:ConnectionState) => {
-		logger.debug("State change: "+state);
 		if(state!==this.connectionState) {
 			this.connectionState = state;
 			this.emit("connectionStateChange", state);
 		}
 	};
 
-	connect = async ():Promise<boolean> => new Promise((resolve, reject) => {
+	connect = () => {
 		if(this.connectionState===ConnectionState.CONNECTED || this.connectionState===ConnectionState.SETTING_UP) {
-			reject(new Error(ErrorCode.ALREADY_CONNECTING));
-			return;
+			throw new Error(ErrorCode.ALREADY_CONNECTING);
 		}
 
 		this.changeConnectionState(ConnectionState.SETTING_UP);
 		
 		this.socket.connect(this.port, this.address);
-	});
+	};
 
 	disconnect = () => {
 		this.socket.destroy();
 	};
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	init = async ():Promise<boolean> => {
+	private init = async ():Promise<boolean> => {
 		const [serviceRequestError, serviceRequest] = await AsyncTask(this.askServiceVersion());
 		if(serviceRequestError) {
 			throw new Error(ErrorCode.GENERIC);
@@ -135,7 +139,7 @@ class DisplayCommunicator extends EventEmitter {
 		return true;
 	};
 
-	deinit = () => {
+	private deinit = () => {
 		this.tcpVersion = null;
 		this.guid = null;
 		if(this.heartbeatTimeoutHandle!==null) {
@@ -485,10 +489,9 @@ class DisplayCommunicator extends EventEmitter {
 		const version: number = data[3] << 24 | data[2] << 16 | data[1] << 8 | data[0];
 		const header: number = data[5] << 8 | data[4];
 		const payload: string = data.toString("utf-8", 6, 15);
-		//Dunno what change number is documentation describes it as number incrementing with setting change.
-		const changeNumber: number = data[19] << 24 | data[18] << 16 | data[17] << 8 | data[16];
+		const serialNumber: string = data.toString("utf-8", 15, 19);
 
-		return ({ version: version, header: header, payload: payload, changeNumber: changeNumber });
+		return ({ version: version, header: header, payload: payload, serialNumber: serialNumber });
 	}
 
 	static searchForDevices = (network: string, port: number, timeout = 10000): Promise<Array<CandidateDevice>> =>
@@ -533,7 +536,7 @@ class DisplayCommunicator extends EventEmitter {
 					const uniqueCheck = devices.findIndex(device => device.model === response.payload);
 					if(uniqueCheck>=0) return;
 
-					devices.push({ model: response.payload, address: remote.address, port: remote.port });
+					devices.push({ model: response.payload+response.serialNumber, address: remote.address, port: remote.port });
 				}
 			});
 		});
