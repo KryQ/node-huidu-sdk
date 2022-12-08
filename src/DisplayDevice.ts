@@ -53,7 +53,7 @@ class DisplayDevice extends EventEmitter {
 	};
 
 	getName = async (): Promise<string> => {
-		if (this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState !== ConnectionState.CONNECTED) {
 			throw new Error(ErrorCode.BUSY);
 			return;
 		}
@@ -73,7 +73,7 @@ class DisplayDevice extends EventEmitter {
 			return;
 		}
 
-		if (this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState !== ConnectionState.CONNECTED) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -150,7 +150,7 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	getBrightness = () => new Promise<number>(async (resolve, reject) => {
-		if (this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState !== ConnectionState.CONNECTED) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -165,7 +165,7 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	getDeviceInfo = () => new Promise<object>(async (resolve, reject) => {
-		if (this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState !== ConnectionState.CONNECTED) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -180,7 +180,7 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	getNetworkInfo = () => new Promise<number>(async (resolve, reject) => {
-		if (this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState !== ConnectionState.CONNECTED) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -196,7 +196,7 @@ class DisplayDevice extends EventEmitter {
 
 	//TODO: Create interface for eth settings
 	setEth = () => new Promise<boolean>(async (resolve, reject) => {
-		if (this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState !== ConnectionState.CONNECTED) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -232,7 +232,7 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	getProgram = () => new Promise<string>(async (resolve, reject) => {
-		if (this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState !== ConnectionState.CONNECTED) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -247,7 +247,7 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	switchProgram = (programGuid: string, programIndex: number) => new Promise<boolean>(async (resolve, reject) => {
-		if (this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState !== ConnectionState.CONNECTED) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -277,7 +277,7 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	addProgram = (program: Program) => new Promise<boolean>(async (resolve, reject) => {
-		if (this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState !== ConnectionState.CONNECTED) {
 			reject(new Error(ErrorCode.BUSY));
 			return;
 		}
@@ -299,7 +299,7 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	updateProgram = (program: Program) => new Promise<boolean>(async (resolve, reject) => {
-		if (this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState !== ConnectionState.CONNECTED) {
 			reject(new Error(ErrorCode.BUSY));
 			return;
 		}
@@ -346,7 +346,7 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	listFonts = () => new Promise<DeviceFont[]>(async (resolve, reject) => {
-		if (this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState !== ConnectionState.CONNECTED) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -373,7 +373,7 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	reloadAllFonts = () => new Promise<number>(async (resolve, reject) => {
-		if (this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState !== ConnectionState.CONNECTED) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -388,7 +388,7 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	listFiles = async (): Promise<DeviceFile[]> => {
-		if (this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState !== ConnectionState.CONNECTED) {
 			throw new Error(ErrorCode.BUSY);
 		}
 
@@ -408,7 +408,7 @@ class DisplayDevice extends EventEmitter {
 	};
 
 	uploadFile = (filePath: string | Buffer, fileName: string = null) => new Promise<string>(async (resolve, reject) => {
-		if (this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState !== ConnectionState.CONNECTED) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -499,7 +499,7 @@ class DisplayDevice extends EventEmitter {
 
 	//TODO: Handle multiple files
 	deleteFiles = (files: string | Array<string>): Promise<boolean> => new Promise(async (resolve, reject) => {
-		if (this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState !== ConnectionState.CONNECTED) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -549,7 +549,7 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	reboot = (delay = 10) => new Promise<boolean>(async (resolve, reject) => {
-		if (this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState !== ConnectionState.CONNECTED) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -576,55 +576,33 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	turnOff = () => new Promise<boolean>(async (resolve, reject) => {
-		if (this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState !== ConnectionState.CONNECTED) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
 
-		const payload = {
-			"@_method": "CloseScreen",
-		};
-
-		const resolver = () => {
-			resolve(true);
-		};
-
-		const packet = this.comm.constructSdkTckPacket(payload);
-
 		try {
-			this.comm.queue.push("CloseScreen", reject, resolver, 10000);
-			await this.comm.socketWritePromise(packet);
+			const obj = await this.comm.sdkCmdGet("CloseScreen", 600);
+			resolve(obj);
 		}
 		catch (e) {
 			reject(e);
 		}
-
 	});
 
 	turnOn = () => new Promise<boolean>(async (resolve, reject) => {
-		if (this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState !== ConnectionState.CONNECTED) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
 
-		const payload = {
-			"@_method": "OpenScreen",
-		};
-
-		const resolver = () => {
-			resolve(true);
-		};
-
-		const packet = this.comm.constructSdkTckPacket(payload);
-
 		try {
-			this.comm.queue.push("OpenScreen", reject, resolver, 10000);
-			await this.comm.socketWritePromise(packet);
+			const obj = await this.comm.sdkCmdGet("OpenScreen", 600);
+			resolve(obj);
 		}
 		catch (e) {
 			reject(e);
 		}
-
 	});
 }
 

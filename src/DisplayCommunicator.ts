@@ -78,7 +78,7 @@ class DisplayCommunicator extends EventEmitter {
 		this.setupSocketEvents(this.socket);
 	}
 
-	setupSocketEvents = (socket:net.Socket):void => {
+	setupSocketEvents = (socket: net.Socket): void => {
 		socket.on("data", this.responseListener);
 
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -87,26 +87,28 @@ class DisplayCommunicator extends EventEmitter {
 			this.deinit();
 		});
 		socket.on("error", error => {
+			this.changeConnectionState(ConnectionState.DISCONNECTED);
+			this.deinit();
 			logger.error(error);
 		});
 
 		socket.on("connect", this.init);
 	};
 
-	changeConnectionState = (state:ConnectionState) => {
-		if(state!==this.connectionState) {
+	changeConnectionState = (state: ConnectionState) => {
+		if (state !== this.connectionState) {
 			this.connectionState = state;
 			this.emit("connectionStateChange", state);
 		}
 	};
 
 	connect = () => {
-		if(this.connectionState===ConnectionState.CONNECTED || this.connectionState===ConnectionState.SETTING_UP) {
+		if (this.connectionState === ConnectionState.CONNECTED || this.connectionState === ConnectionState.SETTING_UP) {
 			throw new Error(ErrorCode.ALREADY_CONNECTING);
 		}
 
 		this.changeConnectionState(ConnectionState.SETTING_UP);
-		
+
 		this.socket.connect(this.port, this.address);
 	};
 
@@ -115,18 +117,18 @@ class DisplayCommunicator extends EventEmitter {
 	};
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private init = async ():Promise<boolean> => {
+	private init = async (): Promise<boolean> => {
 		const [serviceRequestError, serviceRequest] = await AsyncTask(this.askServiceVersion());
-		if(serviceRequestError) {
+		if (serviceRequestError) {
 			throw new Error(ErrorCode.GENERIC);
 		}
 		logger.info(`TCP ver: ${serviceRequest}`);
 
 		this.tcpVersion = serviceRequest;
-		
+
 		const [guidRequestError, guidRequest] = await AsyncTask(this.askGuid());
-		
-		if(guidRequestError) {
+
+		if (guidRequestError) {
 			throw new Error(ErrorCode.GENERIC);
 		}
 		this.guid = guidRequest;
@@ -142,7 +144,7 @@ class DisplayCommunicator extends EventEmitter {
 	private deinit = () => {
 		this.tcpVersion = null;
 		this.guid = null;
-		if(this.heartbeatTimeoutHandle!==null) {
+		if (this.heartbeatTimeoutHandle !== null) {
 			clearTimeout(this.heartbeatTimeoutHandle);
 		}
 	};
@@ -189,97 +191,97 @@ class DisplayCommunicator extends EventEmitter {
 		tcpResponse.cmd = data[3] << 8 | data[2];
 
 		switch (tcpResponse.cmd) {
-		case CmdType.kSDKServiceAnswer: {
-			tcpResponse.data = Buffer.alloc(responseLen - 4);
-			data.copy(tcpResponse.data, 0, 4);
+			case CmdType.kSDKServiceAnswer: {
+				tcpResponse.data = Buffer.alloc(responseLen - 4);
+				data.copy(tcpResponse.data, 0, 4);
 
-			const obj = this.queue.read("kSDKServiceAnswer");
-			if (obj) {
-				obj.resolve(tcpResponse.data.readUInt32LE());
+				const obj = this.queue.read("kSDKServiceAnswer");
+				if (obj) {
+					obj.resolve(tcpResponse.data.readUInt32LE());
+				}
 			}
-		}
-			break;
-		case CmdType.kSDKCmdAnswer: {
-			tcpResponse.data = Buffer.alloc(responseLen - 12);
-			data.copy(tcpResponse.data, 0, 12);
+				break;
+			case CmdType.kSDKCmdAnswer: {
+				tcpResponse.data = Buffer.alloc(responseLen - 12);
+				data.copy(tcpResponse.data, 0, 12);
 
-			const guidObj = parser.parse(tcpResponse.data);
+				const guidObj = parser.parse(tcpResponse.data);
 
-			const req = this.queue.read(guidObj?.sdk?.out["@_method"]);
+				const req = this.queue.read(guidObj?.sdk?.out["@_method"]);
 
-			if (req) {
-				if (guidObj?.sdk?.out["@_result"] != "kSuccess") {
-					if(guidObj?.sdk?.out["@_result"] == "kDownloadingFile") {
-						req.reject("required file not found");
-						return;
+				if (req) {
+					if (guidObj?.sdk?.out["@_result"] != "kSuccess") {
+						if (guidObj?.sdk?.out["@_result"] == "kDownloadingFile") {
+							req.reject("required file not found");
+							return;
+						}
+
+						req.reject(guidObj);
 					}
+					else {
+						req.resolve(guidObj);
+					}
+				}
 
-					req.reject(guidObj);
+			}
+				break;
+			case CmdType.kErrorAnswer: {
+				tcpResponse.data = Buffer.alloc(2);
+				data.copy(tcpResponse.data, 0, 4, 6);
+				logger.error(`Got error anwser ${SdkErrorCode[tcpResponse.data.readUInt16LE()]} ${tcpResponse.data.readUInt16LE()}`);
+			}
+				break;
+			case CmdType.kFileStartAnswer: {
+				const responseErrorBuffer = Buffer.alloc(2);
+				data.copy(responseErrorBuffer, 0, 4, 6);
+
+				const responseSizeBuffer = Buffer.alloc(8);
+				data.copy(responseSizeBuffer, 0, 6, 14);
+
+				const req = this.queue.read("AddFiles");
+
+				if (req) {
+					if (responseSizeBuffer.readUInt16LE() || responseErrorBuffer.readUInt16LE()) {
+						req.reject(ErrorCode.FILE_ALREADY_EXISTS);
+					}
+					else {
+						req.resolve(SuccessCode.OK);
+					}
+				}
+			}
+				break;
+			case CmdType.kFileEndAnswer: {
+				const req = this.queue.read("kFileEndAsk");
+
+				if (req) {
+					req.resolve();
 				}
 				else {
-					req.resolve(guidObj);
+					req.reject();
 				}
 			}
+				break;
+			case CmdType.kTcpHeartbeatAnswer: {
+				this.resetCommWatchdog();
 
-		}
-			break;
-		case CmdType.kErrorAnswer: {
-			tcpResponse.data = Buffer.alloc(2);
-			data.copy(tcpResponse.data, 0, 4, 6);
-			logger.error(`Got error anwser ${SdkErrorCode[tcpResponse.data.readUInt16LE()]} ${tcpResponse.data.readUInt16LE()}`);
-		}
-			break;
-		case CmdType.kFileStartAnswer: {
-			const responseErrorBuffer = Buffer.alloc(2);
-			data.copy(responseErrorBuffer, 0, 4, 6);
+				const heartbeatAsk: Buffer = Buffer.alloc(4);
 
-			const responseSizeBuffer = Buffer.alloc(8);
-			data.copy(responseSizeBuffer, 0, 6, 14);
+				heartbeatAsk[0] = (heartbeatAsk.length & 0xff);
+				heartbeatAsk[1] = ((heartbeatAsk.length >> 8) & 0xff);
+				heartbeatAsk[2] = (CmdType.kTcpHeartbeatAsk & 0xff);
+				heartbeatAsk[3] = ((CmdType.kTcpHeartbeatAsk >> 8) & 0xff);
 
-			const req = this.queue.read("AddFiles");
-
-			if (req) {
-				if (responseSizeBuffer.readUInt16LE() || responseErrorBuffer.readUInt16LE()) {
-					req.reject(ErrorCode.FILE_ALREADY_EXISTS);
-				}
-				else {
-					req.resolve(SuccessCode.OK);
-				}
+				this.socket.write(heartbeatAsk);
 			}
-		}
-			break;
-		case CmdType.kFileEndAnswer: {
-			const req = this.queue.read("kFileEndAsk");
-
-			if (req) {
-				req.resolve();
+				break;
+			default: {
+				logger.error({ message: "Unknown error", cmd: tcpResponse.cmd.toString(16) });
 			}
-			else {
-				req.reject();
-			}
-		}
-			break;
-		case CmdType.kTcpHeartbeatAnswer: {
-			this.resetCommWatchdog();
-
-			const heartbeatAsk: Buffer = Buffer.alloc(4);
-
-			heartbeatAsk[0] = (heartbeatAsk.length & 0xff);
-			heartbeatAsk[1] = ((heartbeatAsk.length >> 8) & 0xff);
-			heartbeatAsk[2] = (CmdType.kTcpHeartbeatAsk & 0xff);
-			heartbeatAsk[3] = ((CmdType.kTcpHeartbeatAsk >> 8) & 0xff);
-
-			this.socket.write(heartbeatAsk);
-		}
-			break;
-		default: {
-			logger.error({ message: "Unknown error", cmd: tcpResponse.cmd.toString(16) });
-		}
 		}
 	};
 
 	resetCommWatchdog = (interval: number = this.HEARTBEAT_INTERVAL_TRESHOLD) => {
-		if(this.heartbeatTimeoutHandle) clearInterval(this.heartbeatTimeoutHandle);
+		if (this.heartbeatTimeoutHandle) clearInterval(this.heartbeatTimeoutHandle);
 
 		this.lastHeartbeat = new Date();
 		this.heartbeatTimeoutHandle = setTimeout(() => {
@@ -341,7 +343,7 @@ class DisplayCommunicator extends EventEmitter {
 	//TODO: Change return type from any to something more suitable
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	sdkCmdGet = (cmd: string, timeout = 1000): Promise<any> => new Promise<any>((resolve, reject) => {
-		if(this.connectionState!==ConnectionState.CONNECTED) {
+		if (this.connectionState !== ConnectionState.CONNECTED) {
 			reject(new Error(ErrorCode.NOT_CONNECTED));
 			return;
 		}
@@ -351,7 +353,7 @@ class DisplayCommunicator extends EventEmitter {
 		});
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const resolver = (data: any):any => {
+		const resolver = (data: any): any => {
 			resolve(data.sdk.out);
 			return;
 		};
@@ -360,13 +362,14 @@ class DisplayCommunicator extends EventEmitter {
 			this.queue.push(cmd, reject, resolver, timeout);
 			this.socket.write(packet);
 		} catch (e) {
+			this.changeConnectionState(ConnectionState.ERROR);
 			reject(ErrorCode.REQUEST_PENDING);
 		}
 	});
 
-	socketWritePromise = (buff: Buffer, ignoreState=false): Promise<boolean> =>
+	socketWritePromise = (buff: Buffer, ignoreState = false): Promise<boolean> =>
 		new Promise((resolve, reject) => {
-			if(!ignoreState && this.connectionState!==ConnectionState.CONNECTED) {
+			if (!ignoreState && this.connectionState !== ConnectionState.CONNECTED) {
 				reject(new Error(ErrorCode.NOT_CONNECTED));
 				return;
 			}
@@ -380,18 +383,18 @@ class DisplayCommunicator extends EventEmitter {
 	constructFileTransferPacket = (filename: string, filesize: number, filetype: number, md5: string): Buffer => {
 		const xmlStrLen: number = 47 + (filename.length + 1);
 		const buff: Buffer = Buffer.alloc(xmlStrLen, 0, "utf8");
-	
+
 		buff[0] = (buff.length & 0xff);
 		buff[1] = ((buff.length >> 8) & 0xff);
-	
+
 		buff[2] = CmdType.kFileStartAsk & 0xff;
 		buff[3] = (CmdType.kFileStartAsk >> 8) & 0xff;
-	
+
 		for (let i = 0; i < md5.length; i++) {
 			buff[4 + i] = md5.charCodeAt(i);
 		}
 		//buff[4 + md5.length] = 0;
-	
+
 		buff[37] = (filesize & 0xff);
 		buff[38] = ((filesize >> 8) & 0xff);
 		buff[39] = ((filesize >> 16) & 0xff);
@@ -400,15 +403,15 @@ class DisplayCommunicator extends EventEmitter {
 		// buff[42] = ((filesize >> 40) & 0xff);
 		// buff[43] = ((filesize >> 48) & 0xff);
 		// buff[44] = ((filesize >> 56) & 0xff);
-	
+
 		buff[45] = (filetype & 0xff);
 		buff[46] = ((filetype >> 8) & 0xff);
-	
+
 		for (let i = 0; i < filename.length; i++) {
 			buff[47 + i] = filename.charCodeAt(i);
 		}
 		buff[47 + filename.length] = 0;
-	
+
 		//Buffer.from(payload).copy(buff, 12);
 		return buff;
 	};
@@ -464,7 +467,7 @@ class DisplayCommunicator extends EventEmitter {
 			this.socket.write(serviceAsk);
 		});
 
-	private askGuid = (): Promise<string> => 
+	private askGuid = (): Promise<string> =>
 		new Promise<string>((resolve, reject) => {
 			const packet = this.constructSdkTckPacket({
 				"@_method": "GetIFVersion",
@@ -473,7 +476,7 @@ class DisplayCommunicator extends EventEmitter {
 				}
 			}, "##GUID");
 
-			const resolver = (result: {sdk:{"@_guid":string}}): void => {
+			const resolver = (result: { sdk: { "@_guid": string } }): void => {
 				resolve(result.sdk["@_guid"]);
 			};
 			try {
@@ -534,9 +537,9 @@ class DisplayCommunicator extends EventEmitter {
 
 				if (response.header === CmdType.kSearchDeviceAnswer) {
 					const uniqueCheck = devices.findIndex(device => device.model === response.payload);
-					if(uniqueCheck>=0) return;
+					if (uniqueCheck >= 0) return;
 
-					devices.push({ model: response.payload+response.serialNumber, address: remote.address, port: remote.port });
+					devices.push({ model: response.payload + response.serialNumber, address: remote.address, port: remote.port });
 				}
 			});
 		});
