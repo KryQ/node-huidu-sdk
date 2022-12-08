@@ -69,7 +69,7 @@ const selectDevice = async (
 
 async function main() {
   const devicesList = await DisplayCommunicator.searchForDevices(
-    "192.168.10.255",
+    "192.168.2.255",
     10001,
     2000
   );
@@ -117,6 +117,8 @@ async function main() {
     console.log("13 - Set Boot Logo");
     console.log("14 - Reload all fonts");
     console.log("15 - Realtime Update");
+    console.log("16 - Turn off (display)");
+    console.log("17 - Turn on (display)");
     console.log("99 - Disconnect");
 
     const ans: number = parseInt(
@@ -301,16 +303,32 @@ async function main() {
           console.log("Error while fetching data");
         }
         break;
-        case 98:
-          try {
-            await card.reboot();
-            console.log("Restarted");
-          } catch (e) {
-            console.log("Error while fetching data");
-          }
-          break;
+      case 16:
+        try {
+          await card.turnOff();
+          console.log("turned off");
+        } catch (e) {
+          console.log("Error while fetching data");
+        }
+        break;
+      case 17:
+        try {
+          await card.turnOn();
+          console.log("turned On");
+        } catch (e) {
+          console.log("Error while fetching data");
+        }
+        break;
+      case 98:
+        try {
+          await card.reboot();
+          console.log("Restarted");
+        } catch (e) {
+          console.log("Error while fetching data");
+        }
+        break;
 
-        case 99:
+      case 99:
         {
           try {
             await card.deinit();

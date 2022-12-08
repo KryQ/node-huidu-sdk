@@ -9,7 +9,7 @@ import EventEmitter from "events";
 import { ConnectionState, DisplayCommunicator } from "./DisplayCommunicator.js";
 
 import logger from "./utils/logger.js";
-import {ErrorCode, SuccessCode} from "./utils/ReturnCodes.js";
+import { ErrorCode, SuccessCode } from "./utils/ReturnCodes.js";
 import { DeviceFile, DeviceFont } from "./utils/Types.js";
 import { Program } from "./ProgramPlanner/Program.js";
 
@@ -17,7 +17,7 @@ class DisplayDevice extends EventEmitter {
 	name: string;
 	model: string;
 	private comm: DisplayCommunicator;
-	address: string ;
+	address: string;
 
 	constructor(address: string, port: number, model: string = null) {
 		super();
@@ -31,21 +31,21 @@ class DisplayDevice extends EventEmitter {
 			switch (state) {
 				case ConnectionState.CONNECTED: this.name = await this.getName();
 			}
-			
+
 			this.emit("connectionStateChange", state);
 		});
 	}
 
 	init = (): void => {
-		if(this.comm.connectionState===ConnectionState.SETTING_UP || this.comm.connectionState===ConnectionState.CONNECTED) {
+		if (this.comm.connectionState === ConnectionState.SETTING_UP || this.comm.connectionState === ConnectionState.CONNECTED) {
 			throw new Error(ErrorCode.ALREADY_CONNECTING);
 		}
 
-		this.comm.connect();	
+		this.comm.connect();
 	};
 
 	deinit = (): void => {
-		if(this.comm.connectionState===ConnectionState.DISCONNECTED) {
+		if (this.comm.connectionState === ConnectionState.DISCONNECTED) {
 			throw new Error(ErrorCode.ALREADY_DISCONNECTED);
 		}
 
@@ -53,7 +53,7 @@ class DisplayDevice extends EventEmitter {
 	};
 
 	getName = async (): Promise<string> => {
-		if(this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState === ConnectionState.BUSY) {
 			throw new Error(ErrorCode.BUSY);
 			return;
 		}
@@ -67,17 +67,17 @@ class DisplayDevice extends EventEmitter {
 		}
 	};
 
-	setName = async (name:string): Promise<boolean> => new Promise<boolean>(async (resolve, reject) => {
-		if(!name.length || name.length>15) {
+	setName = async (name: string): Promise<boolean> => new Promise<boolean>(async (resolve, reject) => {
+		if (!name.length || name.length > 15) {
 			reject(new Error(ErrorCode.ARGUMENT_INVALID));
 			return;
 		}
 
-		if(this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState === ConnectionState.BUSY) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
-		
+
 		const payload = {
 			"@_method": "SetDeviceName",
 			"name": {
@@ -98,16 +98,16 @@ class DisplayDevice extends EventEmitter {
 		catch (e) {
 			reject(e);
 		}
-		
+
 	});
 
 	setBrightness = (brigth: number) => new Promise<number>(async (resolve, reject) => {
-		if(brigth<1 || brigth>100) {
+		if (brigth < 1 || brigth > 100) {
 			reject(new Error(ErrorCode.ARGUMENT_INVALID));
 			return;
 		}
 
-		if(this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState === ConnectionState.BUSY) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -150,7 +150,7 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	getBrightness = () => new Promise<number>(async (resolve, reject) => {
-		if(this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState === ConnectionState.BUSY) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -165,7 +165,7 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	getDeviceInfo = () => new Promise<object>(async (resolve, reject) => {
-		if(this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState === ConnectionState.BUSY) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -180,7 +180,7 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	getNetworkInfo = () => new Promise<number>(async (resolve, reject) => {
-		if(this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState === ConnectionState.BUSY) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -196,7 +196,7 @@ class DisplayDevice extends EventEmitter {
 
 	//TODO: Create interface for eth settings
 	setEth = () => new Promise<boolean>(async (resolve, reject) => {
-		if(this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState === ConnectionState.BUSY) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -228,11 +228,11 @@ class DisplayDevice extends EventEmitter {
 		catch (e) {
 			reject(e);
 		}
-		
+
 	});
 
 	getProgram = () => new Promise<string>(async (resolve, reject) => {
-		if(this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState === ConnectionState.BUSY) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -247,7 +247,7 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	switchProgram = (programGuid: string, programIndex: number) => new Promise<boolean>(async (resolve, reject) => {
-		if(this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState === ConnectionState.BUSY) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -273,11 +273,11 @@ class DisplayDevice extends EventEmitter {
 		catch (e) {
 			reject(e);
 		}
-		
+
 	});
 
-	addProgram = (program:Program) => new Promise<boolean>(async (resolve, reject) => {
-		if(this.comm.connectionState === ConnectionState.BUSY) {
+	addProgram = (program: Program) => new Promise<boolean>(async (resolve, reject) => {
+		if (this.comm.connectionState === ConnectionState.BUSY) {
 			reject(new Error(ErrorCode.BUSY));
 			return;
 		}
@@ -295,11 +295,11 @@ class DisplayDevice extends EventEmitter {
 
 		this.comm.queue.push("AddProgram", reject, resolver, 500);
 		await this.comm.socketWritePromise(packet)
-		.catch(() => reject(new Error(ErrorCode.GENERIC)));
+			.catch(() => reject(new Error(ErrorCode.GENERIC)));
 	});
 
-	updateProgram = (program:Program) => new Promise<boolean>(async (resolve, reject) => {
-		if(this.comm.connectionState === ConnectionState.BUSY) {
+	updateProgram = (program: Program) => new Promise<boolean>(async (resolve, reject) => {
+		if (this.comm.connectionState === ConnectionState.BUSY) {
 			reject(new Error(ErrorCode.BUSY));
 			return;
 		}
@@ -317,10 +317,10 @@ class DisplayDevice extends EventEmitter {
 
 		this.comm.queue.push("UpdateProgram", reject, resolver, 500);
 		await this.comm.socketWritePromise(packet)
-		.catch(() => reject(new Error(ErrorCode.GENERIC)));
+			.catch(() => reject(new Error(ErrorCode.GENERIC)));
 	});
 
-	setBootLogo = async (name:string): Promise<boolean> => new Promise<boolean>(async (resolve, reject) => {
+	setBootLogo = async (name: string): Promise<boolean> => new Promise<boolean>(async (resolve, reject) => {
 		const payload = {
 			"@_method": "SetBootLogoName",
 			"logo": {
@@ -342,11 +342,11 @@ class DisplayDevice extends EventEmitter {
 		catch (e) {
 			reject(e);
 		}
-		
+
 	});
 
 	listFonts = () => new Promise<DeviceFont[]>(async (resolve, reject) => {
-		if(this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState === ConnectionState.BUSY) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -355,13 +355,13 @@ class DisplayDevice extends EventEmitter {
 			const obj = await this.comm.sdkCmdGet("GetAllFontInfo", 600);
 			const fonts: DeviceFont[] = [];
 
-			for(const font of obj.fonts.font) {
+			for (const font of obj.fonts.font) {
 				fonts.push({
-					name: font["@_name"], 
-					file: font["@_file"], 
-					bold: font["@_bold"]==="true", 
-					underline: font["@_underline"]==="true", 
-					italic: font["@_italic"]==="true"
+					name: font["@_name"],
+					file: font["@_file"],
+					bold: font["@_bold"] === "true",
+					underline: font["@_underline"] === "true",
+					italic: font["@_italic"] === "true"
 				});
 			}
 
@@ -373,7 +373,7 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	reloadAllFonts = () => new Promise<number>(async (resolve, reject) => {
-		if(this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState === ConnectionState.BUSY) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -388,7 +388,7 @@ class DisplayDevice extends EventEmitter {
 	});
 
 	listFiles = async (): Promise<DeviceFile[]> => {
-		if(this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState === ConnectionState.BUSY) {
 			throw new Error(ErrorCode.BUSY);
 		}
 
@@ -397,7 +397,7 @@ class DisplayDevice extends EventEmitter {
 			const arr = await this.comm.sdkCmdGet("GetFiles", 600);
 			if (arr) {
 				for (const obj of arr.files.file) {
-					result.push({name: obj["@_name"], size: obj["@_size"], type: obj["@_type"], md5: obj["@_md5"]});
+					result.push({ name: obj["@_name"], size: obj["@_size"], type: obj["@_type"], md5: obj["@_md5"] });
 				}
 			}
 			return result;
@@ -407,20 +407,20 @@ class DisplayDevice extends EventEmitter {
 		}
 	};
 
-	uploadFile = (filePath: string|Buffer, fileName: string = null) => new Promise<string>(async (resolve, reject) => {
-		if(this.comm.connectionState === ConnectionState.BUSY) {
+	uploadFile = (filePath: string | Buffer, fileName: string = null) => new Promise<string>(async (resolve, reject) => {
+		if (this.comm.connectionState === ConnectionState.BUSY) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
 
 		let file: Buffer = null;
-		if(typeof filePath === "string") {
+		if (typeof filePath === "string") {
 			try {
 				file = await fs.promises.readFile(filePath);
 
 				if (!fileName) {
 					logger.debug("Filename not predefined - creating");
-		
+
 					const tmpFilePath = filePath.split(/[\\/]/);
 					fileName = tmpFilePath[tmpFilePath.length - 1];
 					fileName = fileName.replace(/[^\x00-\x7F]/g, "");
@@ -434,7 +434,7 @@ class DisplayDevice extends EventEmitter {
 		else {
 			file = filePath;
 
-			if(!fileName) {
+			if (!fileName) {
 				reject(ErrorCode.INVALID_FILENAME);
 				return;
 			}
@@ -499,7 +499,7 @@ class DisplayDevice extends EventEmitter {
 
 	//TODO: Handle multiple files
 	deleteFiles = (files: string | Array<string>): Promise<boolean> => new Promise(async (resolve, reject) => {
-		if(this.comm.connectionState === ConnectionState.BUSY) {
+		if (this.comm.connectionState === ConnectionState.BUSY) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -509,7 +509,7 @@ class DisplayDevice extends EventEmitter {
 				return [{ "@_name": files }];
 			}
 			else {
-				const array:{"@_name": string}[] = [];
+				const array: { "@_name": string }[] = [];
 				files.forEach((file: string) => {
 					array.push({ "@_name": file });
 				});
@@ -548,8 +548,8 @@ class DisplayDevice extends EventEmitter {
 		}
 	});
 
-	reboot = (delay=10) => new Promise<boolean>(async (resolve, reject) => {
-		if(this.comm.connectionState === ConnectionState.BUSY) {
+	reboot = (delay = 10) => new Promise<boolean>(async (resolve, reject) => {
+		if (this.comm.connectionState === ConnectionState.BUSY) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -572,7 +572,59 @@ class DisplayDevice extends EventEmitter {
 		catch (e) {
 			reject(e);
 		}
-		
+
+	});
+
+	turnOff = () => new Promise<boolean>(async (resolve, reject) => {
+		if (this.comm.connectionState === ConnectionState.BUSY) {
+			reject(ErrorCode.BUSY);
+			return;
+		}
+
+		const payload = {
+			"@_method": "CloseScreen",
+		};
+
+		const resolver = () => {
+			resolve(true);
+		};
+
+		const packet = this.comm.constructSdkTckPacket(payload);
+
+		try {
+			this.comm.queue.push("CloseScreen", reject, resolver, 10000);
+			await this.comm.socketWritePromise(packet);
+		}
+		catch (e) {
+			reject(e);
+		}
+
+	});
+
+	turnOn = () => new Promise<boolean>(async (resolve, reject) => {
+		if (this.comm.connectionState === ConnectionState.BUSY) {
+			reject(ErrorCode.BUSY);
+			return;
+		}
+
+		const payload = {
+			"@_method": "OpenScreen",
+		};
+
+		const resolver = () => {
+			resolve(true);
+		};
+
+		const packet = this.comm.constructSdkTckPacket(payload);
+
+		try {
+			this.comm.queue.push("OpenScreen", reject, resolver, 10000);
+			await this.comm.socketWritePromise(packet);
+		}
+		catch (e) {
+			reject(e);
+		}
+
 	});
 }
 
