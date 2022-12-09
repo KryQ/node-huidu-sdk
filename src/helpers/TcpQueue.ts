@@ -1,12 +1,12 @@
 import { ErrorCode } from "../utils/ReturnCodes.js";
 class TcpQueue {
 	private _queue: {
-        [key: string]: {
-            resolve: any;
-            reject: any,
-            timeout: any
-        }
-    } = {};
+		[key: string]: {
+			resolve: any;
+			reject: any,
+			timeout: any
+		}
+	} = {};
 
 	push = (cmd: string, reject: any, resolve: any, timeout = 2000): void => {
 		const entry = Object.entries(this._queue).find(x => x[0] === cmd);
@@ -40,6 +40,10 @@ class TcpQueue {
 
 	print = (): string => {
 		return JSON.stringify(Object.keys(this._queue));
+	};
+
+	exist = (key: string): boolean => {
+		return this._queue.hasOwnProperty(key);
 	};
 }
 

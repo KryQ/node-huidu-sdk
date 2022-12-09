@@ -408,7 +408,7 @@ class DisplayDevice extends EventEmitter {
 	};
 
 	uploadFile = (filePath: string | Buffer, fileName: string = null) => new Promise<string>(async (resolve, reject) => {
-		if (this.comm.connectionState !== ConnectionState.CONNECTED) {
+		if (this.comm.connectionState !== ConnectionState.CONNECTED || this.comm.queue.exist("AddFiles")) {
 			reject(ErrorCode.BUSY);
 			return;
 		}
@@ -424,6 +424,7 @@ class DisplayDevice extends EventEmitter {
 					const tmpFilePath = filePath.split(/[\\/]/);
 					fileName = tmpFilePath[tmpFilePath.length - 1];
 					fileName = fileName.replace(/[^\x00-\x7F]/g, "");
+					console.log("Created filename: " + fileName);
 				}
 			}
 			catch (e) {
@@ -492,7 +493,6 @@ class DisplayDevice extends EventEmitter {
 			await this.comm.socketWritePromise(packet, true);
 		}
 		catch (e) {
-			this.comm.changeConnectionState(ConnectionState.CONNECTED);
 			reject(e);
 		}
 	});

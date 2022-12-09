@@ -160,7 +160,12 @@ async function main() {
         break;
       case 5:
         const uploadFile: string = await askQuestion("Input file path: ");
-        await card.uploadFile(uploadFile);
+        try {
+          await card.deleteFiles("images.png");
+          await card.uploadFile(uploadFile);
+        } catch (e) {
+          console.log(e);
+        }
         break;
       case 6:
         const program = new Program();
@@ -332,6 +337,7 @@ async function main() {
         {
           try {
             await card.deinit();
+            process.exit(0);
           } catch (e) {
             console.error(e);
           }
