@@ -1,6 +1,6 @@
 {
   "name": "huidu_sdk",
-  "version": "0.0.27",
+  "version": "0.0.28",
   "description": "Node implementation for huidu cards",
   "homepage": "https://github.com/KryQ/node-huidu-sdk",
   "main": "dist/index.js",
