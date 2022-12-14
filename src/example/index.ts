@@ -74,8 +74,6 @@ async function main() {
     2000
   );
 
-  console.log(devicesList);
-
   if (!devicesList.length) {
     console.error("No device found!");
     return;
@@ -196,7 +194,7 @@ async function main() {
           32,
           32,
           255,
-          "logo.png"
+          { name: "logo.png" }
         );
         const parkingNameComponent = new TextComponent(
           33,

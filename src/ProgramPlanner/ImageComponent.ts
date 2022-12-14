@@ -1,21 +1,34 @@
 import BaseComponent from "./BaseComponent.js";
 
+type TImage = { name?: string, md5?: string };
+
 class ImageComponent extends BaseComponent {
 	readonly type = "image";
 
-	image:string;
-	
-	constructor(x:number,y:number,width:number,height:number,alpha:number, image:string, guid?:string) {
-		super(x,y,width,height,alpha, guid);
+	name?: string;
+	md5?: string;
 
-		this.image = image;
+	constructor(x: number, y: number, width: number, height: number, alpha: number, image: TImage, guid?: string) {
+		super(x, y, width, height, alpha, guid);
+
+		if (image.name === undefined && image.md5 === undefined) {
+			throw new Error("Component need either name or md5 hash of image!");
+		}
+
+		this.name = image.name;
+		this.md5 = image.md5;
 	}
 
-	setImage = (image:string) => {
-		this.image = image;
+	setImage = (image: TImage) => {
+		if (image.name === undefined && image.md5 === undefined) {
+			throw new Error("Component need either name or md5 hash of image!");
+		}
+
+		this.name = image.name;
+		this.md5 = image.md5;
 	};
 
-	generate = ():object => {
+	generate = (): object => {
 		return {
 			"@_alpha": this.alpha,
 			"@_guid": this.guid,
@@ -27,10 +40,11 @@ class ImageComponent extends BaseComponent {
 			},
 			"resources": {
 				"image": {
-					"@_guid": this.guid+"Image",
+					"@_guid": this.guid + "Image",
 					"@_fit": "fill",
 					"file": {
-						"@_name": this.image
+						...(this.name && !this.md5 && { "@_name": this.name }),
+						...(this.md5 && { "@_md5": this.md5 }),
 					}
 				}
 			}
